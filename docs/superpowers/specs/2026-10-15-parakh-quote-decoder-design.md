@@ -6,7 +6,7 @@ v1.1 changes: GST, purity, weight-unit and missing-value rules corrected; field 
 
 ## 0. Safeguards (added at approval)
 
-- **S1 — No double discount.** A discount is counted once. If a bill-level `discount` and an item-level discount charge share the same `source` text (or the same amount where one has no source), they are one discount. Every discount appears exactly once in the breakdown with its source.
+- **S1 — No double discount.** A discount is counted once. If a bill-level `discount` shares its `source` text with an item-level discount line, or equals one item discount or the sum of item discounts, it is treated as a summary of those lines and counted once. Every discount appears exactly once in the breakdown with its source.
 - **S2 — Inconsistency needs confirmed, independent values.** A "Doesn't add up" point (R1, R2) is raised only when every value in the equation was read from the slip (not derived by Parakh) and is `confirmed`. Otherwise the check goes to "Can't check" with the missing/unconfirmed field named.
 - **S3 — Accurate privacy wording.** "To read your estimate, your image is sent through OpenRouter to a third-party AI model provider; their data policies apply. Parakh's server doesn't save the image or the results. The extracted estimate (not the image) is kept in this tab's session storage so a refresh doesn't lose it; it is cleared when the tab is closed, though some browsers can restore it if you reopen a closed tab. Cover your name, phone and address before uploading."
 
