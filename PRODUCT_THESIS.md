@@ -35,6 +35,11 @@ The input is an unstructured, often half-handwritten estimate, with shop-specifi
 - **Asset:** an anonymised, buyer-side record of real quotes across jewellers and cities, a pricing benchmark retailers won't publish themselves.
 - **Revenue options to test:** lead generation to jewellers who opt into transparent pricing; "Parakh-verified" badge for jewellers; adjacent journeys (old-gold exchange valuation, gold loans, jewellery insurance).
 
+## The three questions an investor will ask (hypotheses to test)
+- **Frequency:** a single buyer purchases rarely, but each purchase involves several shops and family members. *Test:* does one estimate check lead to 2+ checks (other shops, relatives) within the same purchase cycle?
+- **Distribution at the moment of purchase:** people share estimate photos on family WhatsApp groups before deciding. A shareable "Parakh report" link turns each check into an invitation. *Test:* share rate per report; share-to-new-user conversion.
+- **Defensibility vs ChatGPT / marketplaces:** a general assistant reads a bill once; Parakh accumulates a buyer-side record of real quotes (by city, purity, item type), which enables benchmarks ("making % in your city for this kind of item") that no retailer will publish. Marketplaces are conflicted. *Test:* do benchmarks change user behaviour, and does quote data accumulate fast enough to be credible per city?
+
 ## Most serious weaknesses and risks
 - **Frequency:** jewellery purchases are infrequent, so retention is hard and acquisition must ride high-intent moments.
 - **Counter friction:** will a buyer pull out a phone in front of a family jeweller? It may be used more *after* receiving an estimate, before returning to pay.

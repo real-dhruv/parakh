@@ -1,129 +1,151 @@
-# Parakh — Jewellery Estimate "Second Opinion" — Design Spec
+# Parakh — Jewellery Estimate "Second Opinion" — Design Spec v1.1
 
 Date: 2026-10-15 · Status: awaiting review
+v1.1 changes: GST, purity, weight-unit and missing-value rules corrected; field provenance; flags downgraded to evidence-backed review points; comparison moved to stretch; privacy notice, global budget cap, session state; real-photo eval.
 
 ## 1. Intent (agreed)
 
 - **Outcome:** a working prototype for the BVP India Consumer AI Associate application that shows consumer insight, AI judgment and building ability, plus thesis docs and a Loom script.
-- **Product:** a buyer-side "second opinion" on a jeweller's estimate. User uploads a photo (or pastes text) of an estimate slip → app extracts line items → deterministic code recalculates → shows what they are really paying for, red flags and questions to ask before paying. Optional comparison of 2–3 shops.
+- **Product:** a buyer-side "second opinion" on a jeweller's estimate. Photo (or pasted text) of an estimate slip → AI extracts line items with their source text → user confirms → deterministic code recalculates → shows what they are paying for, what does not add up and what to ask before paying.
 - **Who for:** Indian buyers making a high-value gold/diamond purchase at a physical jeweller (wedding, festival, gifting) who cannot decode making / wastage / stone / GST lines.
 - **Name:** *Parakh* (Hindi: to assay / to examine).
 - **Constraints:** clean-room (no employer code, data, pipelines or designs); synthetic data clearly labelled; no invented gold rates, statistics, testimonials or policies; secrets server-side only; spend cap ~$5 total (eval guard $2); ask before public deploy.
-- **Success:** a BVP reviewer gets the value in 15 s; all numbers are correct and traceable to the slip; AI never authors a figure; production build passes; works on mobile.
+- **Success:** a BVP reviewer gets the value in 15 s; every figure traces to slip text + a shown calculation; AI never authors a figure; the app never labels a legitimate charge as wrong; production build passes; works on mobile.
 
-## 2. User journey
+**Core principle:** *Only arithmetic is provable from a slip. Everything else is a question to ask, with the ₹ amount involved.*
 
-1. **Home** — headline "Got a jewellery estimate? Get a second opinion before you pay." Actions: Upload photo · Paste text · Try a sample (3 synthetic slips, labelled "Synthetic sample").
-2. **Confirm what we read** — extracted fields in an editable table; uncertain fields highlighted (from extractor `_uncertain` + Jev clarification decision). User can fix and continue. This is the grounding step.
+## 2. User journey (single estimate = core; comparison = stretch)
+
+1. **Home** — "Got a jewellery estimate? Get a second opinion before you pay." Actions: Upload photo · Paste text · Try a sample (3 synthetic slips, labelled "Synthetic sample"). Privacy note before upload: "Your image is sent to an AI provider to read it. Don't include your name, phone or address. We don't store it."
+2. **Confirm what we read** — extracted fields in an editable table. Each value shows the raw slip text it came from and its unit. Unreadable values are empty (never zero) and highlighted; the user fills or confirms them. Nothing is judged until required fields are confirmed.
 3. **Report**
-   - Stacked bar: metal · making · wastage/VA · stones · other · GST.
-   - Three hidden numbers: implied gold rate (₹/g of the stated purity and ₹/g 24K-equivalent), effective making % of metal value, all-in cost per gram of fine gold.
-   - Optional input: "Board rate shown in shop (₹/g, 22K)". Without it, no judgement on the rate.
-   - Red flags with severity (`serious` / `ask` / `info`), each with a plain explanation and a "say this to the jeweller" line.
-   - "Before you pay" checklist (HUID verify in BIS Care app, buyback/exchange terms, final weight on scale, itemised bill).
-4. **Compare** — add 2–3 estimates; normalised table (fine-gold weight, ₹/g fine gold, making %, stones, GST) and an explanation of where the price gap comes from (deterministic decomposition; AI writes the sentence).
+   - Stacked bar: metal · making · wastage/VA · stones · other · GST (only components that are known).
+   - Key numbers: gold rate the bill implies (₹/g of net metal, at stated purity); making + wastage as % of metal value. **Tap any number → see the slip text it came from and the calculation.**
+   - Optional: "Board rate in the shop" (₹ per g or per 10 g, with purity). Compared only when purity matches.
+   - Review points in three tiers: **Doesn't add up** (arithmetic, provable) · **Ask the jeweller** (with ₹ at stake and a suggested question) · **Good to know** (tips).
+   - "Before you pay" checklist: HUID verify in BIS Care app, final weight on the scale, exchange/buyback terms, itemised final invoice.
+   - "Can't check" list: what was missing and why the app declined to compute it.
+4. **Compare (stretch, only after 1–3 are done and verified)** — component-by-component table (metal value per net gram at same purity, making %, stones, GST). No single "all-in ₹/g" ranking across unlike items.
 
-Out of scope: accounts, catalog, live gold-rate feed, Hindi UI, old-gold exchange valuation, persistence beyond the browser session.
+Out of scope: accounts, catalog, live gold-rate feed, Hindi UI, old-gold exchange valuation, server-side storage.
+State: current estimate(s) kept in `sessionStorage` so navigation and refresh don't lose them.
 
 ## 3. Data model (`lib/schema.ts`, zod)
 
 ```ts
-Purity = "24K" | "22K" | "18K" | "14K" | null          // fineness 0.999 / 0.916 / 0.750 / 0.585
+Purity = "24K999" | "24K995" | "23K" | "22K" | "20K" | "18K" | "14K" | "9K" | "unknown"
+FINENESS = { "24K999": .999, "24K995": .995, "23K": .958, "22K": .916, "20K": .833, "18K": .750, "14K": .585, "9K": .375 }
+
+Field<T> = { value: T | null; source: string | null; confirmed: boolean }   // source = raw slip text
+WeightField = Field<number> & { unit: "g" | "ct" | "mg" | null }
+
 ChargeType = "making" | "wastage" | "stone" | "hallmark" | "other" | "discount"
-Charge = { label: string; type: ChargeType; basis?: "pct" | "per_g" | "flat"; rate?: number; amount: number }
+Charge = { label: string; type: ChargeType; basis: "pct" | "per_g" | "flat" | null;
+           rate: Field<number>; amount: Field<number> }
+
 Item = {
-  description: string; purity: Purity;
-  grossWt: number; stoneWt?: number; netWt?: number;  // grams
-  goldRate?: number;                                   // ₹/g as written on slip
-  goldValue?: number;                                  // ₹ as written
+  description: Field<string>; purity: Field<Purity>;
+  grossWt: WeightField; stoneWt: WeightField; netWt: WeightField;
+  hasStones: boolean | null;
+  goldRate: Field<number>;   // ₹/g as written (normalised from per-10g with note)
+  goldValue: Field<number>;
   charges: Charge[];
 }
 Estimate = {
-  shop?: string; date?: string; items: Item[];
-  subtotal?: number; gstPct?: number; gstAmount?: number; total: number;
-  huidMentioned?: boolean; uncertain: string[];        // field paths the extractor was unsure of
+  shop: Field<string>; items: Item[];
+  subtotal: Field<number>; gstPct: Field<number>; gstAmount: Field<number>; total: Field<number>;
+  huidMentioned: boolean | null;
 }
 ```
 
-Extractor output preserves the slip's raw labels (`Charge.label`); `type` is assigned by the label classifier.
+Rules: `null` means unknown. The extractor must not fill a value it cannot read. Ratings like "MC 12%" keep `basis` + `rate`.
 
 ## 4. Responsibilities
 
 | Responsibility | Owner | Notes |
 |---|---|---|
-| Image/text → `Estimate` | OpenRouter vision model | JSON mode + zod validation, 1 retry with error feedback; failure → "couldn't read, paste text or enter manually" |
-| Raw charge label → `ChargeType` | **Jev** `choice` | Fallback: keyword map, then OpenRouter |
-| "Needs user confirmation before judging?" | **Jev** `choice` (`ok` / `confirm_fields`) + deterministic gaps (missing netWt, totals mismatch) | Confidence shown as a hint, never as correctness |
-| Breakdown, implied rates, flags | Deterministic TS (`lib/calc.ts`, `lib/flags.ts`) | Unit-tested |
-| Explanations + "say this" lines + compare sentence | OpenRouter text model | Input = computed facts JSON; output = text with placeholders like `{{flag.amount}}` filled by code; any digit sequence in model text not present in facts → regenerate once, else use template text |
+| Image/text → `Estimate` with source text per field | OpenRouter vision model | JSON mode + zod validation, 1 retry with error feedback; failure → paste/manual entry |
+| Raw charge label → `ChargeType` | **Jev** `choice` | Fallback: keyword map → OpenRouter. Eval-gated |
+| "Needs confirmation before judging?" | Deterministic required-field check + **Jev** `choice` on readability | Confidence shown only as a hint |
+| Unit normalisation, breakdown, review points | Deterministic TS (`lib/calc.ts`, `lib/review.ts`) | Unit-tested |
+| Plain-language explanation + suggested question | OpenRouter text model | Input = computed facts JSON; numbers inserted by code via placeholders; any digit in model text not in facts → regenerate once, else template text |
 
-If the eval shows Jev underperforms OpenRouter on a task, report it to the user before changing roles.
+If the eval shows Jev underperforms on a task, report to the user before changing roles.
 
 ## 5. Calculations (`lib/calc.ts`)
 
-- `fineness`: 24K 0.999, 22K 0.916, 18K 0.750, 14K 0.585.
-- `netWt = netWt ?? grossWt − (stoneWt ?? 0)`.
-- `goldValue = goldValue ?? goldRate × netWt` (if neither is present, the item is marked unverifiable).
-- `impliedRate = goldValue / netWt`: what the buyer effectively pays per gram of actual metal. If this exceeds the written `goldRate`, extra weight was billed (feeds F3).
-- `billedGoldWt = goldValue / goldRate` (only when both are present); F3 triggers when `billedGoldWt` is within tolerance of `grossWt` and `stoneWt > 0`.
-- `rate24kEquiv = impliedRate / fineness`.
-- `fineGoldWt = netWt × fineness`.
-- `makingPct = (Σ making + Σ wastage amounts) / goldValue`.
-- `costPerFineGram = total / Σ fineGoldWt` (gold items only).
-- Rounding: compute in paise-free floats, display ₹ rounded to whole rupees; tolerance for mismatch = max(₹2, 0.1 %).
+- Weight normalisation: `ct × 0.2 → g`, `mg ÷ 1000 → g`. Unknown unit on stone weight → unknown.
+- `netWt`: use the slip's net weight if present; else `grossWt − stoneWtG` only if `stoneWt` known; else `grossWt` only if `hasStones === false`; otherwise **unknown** (dependent checks go to "Can't check").
+- `goldValue`: slip value; else `goldRate × netWt` if both known; else unknown.
+- `impliedRate = goldValue / netWt` (₹ per gram of net metal, at stated purity).
+- `billedGoldWt = goldValue / goldRate` when both known.
+- `metalSharePct = goldValue / total`; `makingPct = (Σ making + Σ wastage) / goldValue`.
+- GST check base: `taxable = subtotal ?? (Σ goldValue + Σ charges)`; expected = 3 % × taxable.
+- Tolerance: max(₹2, 0.1 %) for money; max(0.01 g, 0.5 %) for weight.
+- Board-rate input normalised to ₹/g; compared only if its purity equals the item's purity.
+- No "total ÷ fine gold" metric anywhere.
 
-## 6. Flag rules (`lib/flags.ts`)
+## 6. Review points (`lib/review.ts`)
 
-| # | Rule | Severity |
-|---|---|---|
-| F1 | Line sums / subtotal / GST / total don't reconcile (beyond tolerance) | serious |
-| F2 | User board rate given and implied rate > board × 1.01 | serious |
-| F3 | Gold billed on gross weight including stones (billed gold wt ≈ grossWt while stoneWt > 0) | serious |
-| F4 | Making `per_g` or `pct` base uses grossWt while stoneWt > 0 | ask |
-| F5 | Both wastage/VA and making charged | ask |
-| F6 | GST ≠ 3 % of taxable value, or separate GST line on making | ask (phrased "verify") |
-| F7 | Purity missing, or not 916/750/585/999 | ask |
-| F8 | HUID not mentioned | info (BIS Care verify tip) |
-| F9 | Effective making % reported as fact | info (no fair-range claim) |
+| # | Condition | Tier | Wording principle |
+|---|---|---|---|
+| R1 | Line items / subtotal / GST / total don't reconcile | Doesn't add up | Show both numbers and the difference |
+| R2 | `gross − stone ≠ net` beyond tolerance (all three known) | Doesn't add up | Show the arithmetic |
+| R3 | `billedGoldWt ≈ grossWt` while stone weight > 0 | Ask | "Gold appears charged on X g, which includes Y g of stones. Ask which weight the gold rate was applied to." ₹ at stake = rate × stone g |
+| R4 | Making `per_g`/`pct` computed on gross weight while stones present | Ask | Same pattern |
+| R5 | Board rate (same purity) given and `impliedRate > board × 1.01` | Ask | "₹Z/g above the board rate you entered. Ask what's included." |
+| R6 | GST % ≠ 3 % of taxable value; or a 5 % rate applied to making | Ask | Cite: CBIC gems & jewellery FAQ — 3 % on total value incl. making, even if shown separately. A separate 3 % line is fine and not flagged |
+| R7 | Both making and wastage/VA charged | Good to know | "Some jewellers charge both; ask what each covers." Not a fault |
+| R8 | Purity missing/unknown | Ask | "Ask for purity in writing, e.g. 22K916." |
+| R9 | HUID not mentioned | Good to know | BIS Care app verify tip |
 
-Each flag: `{ id, severity, title, facts: Record<string, number|string>, amountAtStake?: number }`.
+No severity called "serious". No phrasing claims overcharging.
 
 ## 7. Synthetic samples & eval set
 
-- `samples/*.html` → rendered to PNG via headless Chrome (`scripts/render-samples.ts`). 8 slips: printed POS, thermal receipt, handwritten-style font, Hinglish labels (e.g. "Ghadai", "VA"), diamond ring with stones, multi-item, one deliberately reconciling clean slip, one blurred photo.
+- `samples/*.html` → PNG via headless Chrome. 8 slips: printed POS, thermal receipt, handwritten-style font, Hinglish labels ("Ghadai", "VA", "Wst"), diamond ring with carat stone weight, multi-item, one fully clean slip (must produce zero Ask/Doesn't-add-up points), one blurred.
 - Fictional shop names; footer "SYNTHETIC — for demonstration".
-- `samples/*.truth.json` = hand-checked `Estimate` + expected flag IDs.
-- Labels set: ~40 charge strings with ground-truth `ChargeType`.
+- `samples/*.truth.json`: hand-checked `Estimate` + expected review-point IDs. Truth values double-checked by a script independent of `lib/calc.ts`.
+- **Real-photo set:** user photographs ~4 printed/on-screen samples with a phone (angle, glare, shadows).
+- Label set: ~40 charge strings with ground-truth `ChargeType`.
 
 ## 8. Eval (`eval/run.ts` → `EVAL.md`)
 
-1. Extraction: 3 OpenRouter vision models (Gemini Flash class, GPT-4o-mini class, Claude Haiku class — exact IDs/prices checked at run time) × 8 slips. Metric: field-level accuracy on numeric fields (±0.5 %), flag-set match after calc, latency p50, cost.
-2. Label classification: Jev vs best OpenRouter model on ~40 labels. Accuracy, latency, cost.
-3. Clarification decision: Jev vs OpenRouter on clear vs blurred/ambiguous slips; metric = agreement with expected `ok/confirm`.
-- Spend guard: abort when cumulative estimated cost > $2. Raw outputs saved under `eval/results/` (gitignored raw).
+1. Extraction: 3 OpenRouter vision models (exact IDs/prices checked at run time) on 8 rendered + ~4 phone photos. Metrics: numeric field accuracy (±0.5 %), "missing correctly left null" rate, hallucinated-value count, review-point set match, latency p50, cost.
+2. Label classification: Jev vs best OpenRouter model on ~40 labels.
+3. Confirmation decision: Jev vs OpenRouter on clear vs blurred/ambiguous inputs.
+- Spend guard: abort at cumulative estimated $2.
 
 ## 9. Architecture
 
 Single Next.js (App Router) + TypeScript + Tailwind app.
-- `app/page.tsx` home · `app/check/page.tsx` confirm+report (client state) · `app/compare/page.tsx`.
-- `app/api/extract/route.ts` (image/text → Estimate + label types + clarification) · `app/api/explain/route.ts` (facts → text).
-- `lib/openrouter.ts`, `lib/jev.ts` (thin fetch/SDK wrappers, server-only), `lib/schema.ts`, `lib/calc.ts`, `lib/flags.ts`.
-- Env: `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY`, `OPENROUTER_MODEL` (set from eval). `.env.example` committed, `.env.local` ignored.
-- Rate limiting: simple in-memory per-IP cap on API routes (demo protection), image size ≤ 4 MB.
-- If keys are absent: samples run on their precomputed truth JSON with a visible "Demo mode — AI not connected" banner; upload is disabled. Never presented as live AI.
+- `app/page.tsx` home · `app/check/page.tsx` confirm + report · `app/compare/page.tsx` (stretch).
+- `app/api/extract/route.ts` · `app/api/explain/route.ts`.
+- `lib/openrouter.ts`, `lib/jev.ts` (server-only), `lib/schema.ts`, `lib/calc.ts`, `lib/review.ts`.
+- Env: `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY`, `OPENROUTER_MODEL`, `DAILY_REQUEST_CAP`. `.env.example` committed, `.env.local` ignored.
+- Budget protection: (a) hard spend limit set on the OpenRouter key in its dashboard (user action), (b) global daily request cap enforced in-app, (c) per-IP limit as a soft extra, (d) image ≤ 4 MB, resized client-side.
+- No keys: samples run on precomputed truth JSON with a visible "Demo mode — AI not connected" banner; upload disabled. Never presented as live AI.
 
 ## 10. Error handling
 
-- Extraction invalid after retry → user-facing message + manual entry path.
-- Jev/OpenRouter timeout (10 s) → fallback path (keyword map / template text), marked in UI as "basic mode".
-- Non-jewellery image → extractor returns empty items → "This doesn't look like a jewellery estimate."
+- Extraction invalid after retry → message + paste/manual entry.
+- Jev/OpenRouter timeout (10 s) → keyword map / template text, marked "basic mode".
+- Non-jewellery image → "This doesn't look like a jewellery estimate."
+- Missing required values → item stays in "Can't check" with the reason; no guessed numbers.
 
 ## 11. Testing & verification
 
-- vitest: calc and flag rules against every `*.truth.json` (expected flags exact match) and hand-worked numeric cases.
-- Grounding test: explanation output contains no number absent from facts.
-- Manual: full demo flow in browser at 390 px and desktop; `next build` passes; grep build output and client bundle for key prefixes.
+- vitest: calc + review rules against every truth JSON (exact review-point match), hand-worked cases, carat conversion, missing-value paths, clean-slip zero-flag case, GST separate-3 %-line not flagged.
+- Grounding test: explanation text contains no number absent from facts.
+- Manual: demo flow at 390 px and desktop; refresh keeps state; `next build` passes; client bundle grep for key prefixes.
 
 ## 12. Deliverables beyond the app
 
-`PRODUCT_THESIS.md`, `EVAL.md`, `INVESTMENT_THESIS.md`, `SUBMISSION.md` (Loom script 60–90 s, "What is it and who is it for?", one-line link description, technical explanation). Investment docs separate evidence (cited) from assumptions; no invented TAM/traction.
+`PRODUCT_THESIS.md`, `EVAL.md`, `INVESTMENT_THESIS.md`, `SUBMISSION.md`. The investment thesis must state explicit, testable hypotheses for **frequency**, **distribution at the moment of purchase** and **defensibility vs ChatGPT/marketplaces**; evidence cited, assumptions labelled; no invented TAM or traction.
+
+## 13. References
+
+- CBIC gems & jewellery FAQ (Q7) via [TaxTMI](https://www.taxtmi.com/article/detailed?id=13416) — 3 % GST on total value incl. making.
+- [BIS circular 23-07-2021](https://services.bis.gov.in/tmp/Circular_khfe_2021-07-23.pdf) — 20K/23K/24K added to IS 1417.
+- [BIS hallmarking FAQ](https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq) — grades incl. 24KS (995).
+- 9K (375) addition in 2025 reported by secondary sources only; verify before relying on it.
