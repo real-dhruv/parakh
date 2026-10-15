@@ -28,6 +28,7 @@ function Trace({ e, refs, formula }: { e: Estimate; refs: string[]; formula?: st
       {formula && <div className="font-mono text-[12px] text-ink">{formula}</div>}
       {refs.map((r) => {
         const d = describe(e, r);
+        if (d.shown === "—") return null; // not on the slip and not entered: nothing to trace
         return (
           <div key={r} className="flex flex-wrap gap-x-2">
             <span className="text-muted">{d.name}:</span>
@@ -88,6 +89,17 @@ function Key({ label, value, sub, children }: { label: string; value: string; su
 
 const COLORS = { metal: "#a8741a", making: "#d9a441", wastage: "#e8c785", stones: "#5b6b8c", other: "#b6aea3", gst: "#3b3632" };
 const NAMES = { metal: "Gold", making: "Making", wastage: "Wastage / VA", stones: "Stones", other: "Other", gst: "GST" };
+
+function Points({ tiers, r, e, counts }: { tiers: Tier[]; r: ReturnType<typeof review>; e: Estimate; counts: Record<Tier, number> }) {
+  return tiers.map((tier) =>
+    counts[tier] ? (
+      <section key={tier} className="space-y-3">
+        <h2 className="flex items-center gap-2 font-medium"><span className={`rounded-full px-2.5 py-0.5 text-[12px] ${TIER[tier].badge}`}>{counts[tier]}</span>{TIER[tier].label}</h2>
+        {r.points.filter((p) => p.tier === tier).map((p, i) => <PointCard key={i} p={p} e={e} />)}
+      </section>
+    ) : null,
+  );
+}
 
 export default function Report({ estimate: e, meta, onEdit }: { estimate: Estimate; meta: Meta; onEdit: () => void }) {
   const [boardRate, setBoardRate] = useState("");
@@ -151,6 +163,8 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
           </div>
         )}
       </section>
+
+      <Points tiers={["mismatch", "ask"]} r={r} e={e} counts={counts} />
 
       {total > 0 && segs.length > 0 && (
         <section>
@@ -219,14 +233,8 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
         </div>
       </section>
 
-      {(["mismatch", "ask", "tip"] as Tier[]).map((tier) =>
-        counts[tier] ? (
-          <section key={tier} className="space-y-3">
-            <h2 className="flex items-center gap-2 font-medium"><span className={`rounded-full px-2.5 py-0.5 text-[12px] ${TIER[tier].badge}`}>{counts[tier]}</span>{TIER[tier].label}</h2>
-            {r.points.filter((p) => p.tier === tier).map((p, i) => <PointCard key={i} p={p} e={e} />)}
-          </section>
-        ) : null,
-      )}
+
+      <Points tiers={["tip"]} r={r} e={e} counts={counts} />
 
       {r.taxModeAssumed && <p className="text-[13px] text-muted">GST treated as {r.taxModeUsed === "inclusive" ? "included in prices" : "added on top"} — the only reading under which the slip adds up.</p>}
 
