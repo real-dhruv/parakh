@@ -1,69 +1,49 @@
-import Image from "next/image";
+import Start from "@/components/Start";
+import { SAMPLES } from "@/samples/data";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto max-w-xl px-4 pb-16">
+      <header className="flex items-center justify-between py-5">
+        <span className="font-display text-2xl font-semibold tracking-tight">Parakh</span>
+        <span className="rounded-full border border-line px-2.5 py-1 text-[11px] text-muted">Prototype</span>
+      </header>
+
+      <section className="pt-4 pb-7">
+        <h1 className="font-display text-[34px] leading-[1.1] font-medium sm:text-[42px]">
+          Got a jewellery estimate? <span className="text-gold">Get a second opinion</span> before you pay.
+        </h1>
+        <p className="mt-4 text-[16px] leading-relaxed text-muted">
+          Snap the slip from the counter. See what you&apos;re really paying for gold, making and stones, what doesn&apos;t add up, and
+          exactly what to ask the jeweller.
+        </p>
+      </section>
+
+      <Start samples={SAMPLES.map(({ id, title, estimate }) => ({ id, title, estimate }))} />
+
+      <section className="mt-12">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted mb-4">How it works</h2>
+        <ol className="space-y-4">
+          {[
+            ["AI reads the slip", "A vision model transcribes every line — and keeps the exact text each number came from."],
+            ["You confirm", "Nothing is judged until you've checked what was read. Unclear values are highlighted."],
+            ["Code does the maths", "Every calculation is ordinary, tested code. The AI never produces a number in your report."],
+          ].map(([t, d], i) => (
+            <li key={t} className="flex gap-4">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold-soft text-gold text-sm font-semibold">{i + 1}</span>
+              <div>
+                <div className="font-medium">{t}</div>
+                <div className="text-sm text-muted leading-relaxed">{d}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <footer className="mt-14 border-t border-line pt-5 text-[12px] leading-relaxed text-muted">
+        Independent prototype by Dhruv Pawar. Sample estimates are synthetic, shops are fictional and gold rates shown are illustrative —
+        not today&apos;s market rates. Parakh helps you ask better questions; it is not financial, tax or legal advice.
+      </footer>
+    </main>
   );
 }

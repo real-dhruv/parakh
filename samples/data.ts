@@ -8,7 +8,7 @@ const f = (value: number, source: string): F => ({ value, source, confirmed: tru
 const none = { value: null, source: null, confirmed: true, unsure: false };
 const w = (value: number, unit: "g" | "ct", source: string) => ({ ...f(value, source), unit });
 const noW = { ...none, unit: null };
-const s = (value: string, source: string) => ({ value, source, confirmed: true, unsure: false });
+const s = <T extends string>(value: T, source: string) => ({ value, source, confirmed: true, unsure: false });
 const ch = (label: string, type: Charge["type"], basis: Charge["basis"], rate: number | null, amount: number, src: string): Charge => ({
   label, type, basis, rate: rate === null ? none : f(rate, src), amount: f(amount, src),
 });

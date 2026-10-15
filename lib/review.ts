@@ -17,7 +17,6 @@ export type Report = { calc: EstimateCalc; points: ReviewPoint[]; cantCheck: Can
 
 export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const g = (n: number) => `${+n.toFixed(3)} g`;
-const pct = (n: number) => `${+(n * 100).toFixed(1)}%`;
 
 const itemName = (it: Item, i: number) => it.description.value || `Item ${i + 1}`;
 
