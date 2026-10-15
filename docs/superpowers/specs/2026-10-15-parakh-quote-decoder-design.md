@@ -1,6 +1,7 @@
-# Parakh — Jewellery Estimate "Second Opinion" — Design Spec v1.1
+# Parakh — Jewellery Estimate "Second Opinion" — Design Spec v1.2
 
 Date: 2026-10-15 · Status: awaiting review
+v1.2 changes: tax-inclusive/exclusive handling, discount sign, retail-sale-only GST rule; all numeric statements templated (AI writes no numbers); accurate privacy wording; budget protection via provider-level key limit + per-IP rate limit (no in-memory "global" cap).
 v1.1 changes: GST, purity, weight-unit and missing-value rules corrected; field provenance; flags downgraded to evidence-backed review points; comparison moved to stretch; privacy notice, global budget cap, session state; real-photo eval.
 
 ## 1. Intent (agreed)
@@ -16,7 +17,7 @@ v1.1 changes: GST, purity, weight-unit and missing-value rules corrected; field 
 
 ## 2. User journey (single estimate = core; comparison = stretch)
 
-1. **Home** — "Got a jewellery estimate? Get a second opinion before you pay." Actions: Upload photo · Paste text · Try a sample (3 synthetic slips, labelled "Synthetic sample"). Privacy note before upload: "Your image is sent to an AI provider to read it. Don't include your name, phone or address. We don't store it."
+1. **Home** — "Got a jewellery estimate? Get a second opinion before you pay." Actions: Upload photo · Paste text · Try a sample (3 synthetic slips, labelled "Synthetic sample"). Privacy note before upload: "To read your estimate, the image is sent to an external AI service (via OpenRouter). Parakh keeps no copy on its server; your estimate is held only in this browser tab's session storage and cleared when you close it. Cover your name, phone and address before uploading."
 2. **Confirm what we read** — extracted fields in an editable table. Each value shows the raw slip text it came from and its unit. Unreadable values are empty (never zero) and highlighted; the user fills or confirms them. Nothing is judged until required fields are confirmed.
 3. **Report**
    - Stacked bar: metal · making · wastage/VA · stones · other · GST (only components that are known).
@@ -53,7 +54,10 @@ Item = {
 }
 Estimate = {
   shop: Field<string>; items: Item[];
-  subtotal: Field<number>; gstPct: Field<number>; gstAmount: Field<number>; total: Field<number>;
+  subtotal: Field<number>; discount: Field<number>;   // stored as a positive number, always subtracted
+  gstPct: Field<number>; gstAmount: Field<number>; total: Field<number>;
+  taxMode: "exclusive" | "inclusive" | "unknown";    // are line amounts before or after GST?
+  saleType: "retail_sale" | "job_work" | "unknown";   // job_work = customer supplies the gold
   huidMentioned: boolean | null;
 }
 ```
@@ -68,7 +72,8 @@ Rules: `null` means unknown. The extractor must not fill a value it cannot read.
 | Raw charge label → `ChargeType` | **Jev** `choice` | Fallback: keyword map → OpenRouter. Eval-gated |
 | "Needs confirmation before judging?" | Deterministic required-field check + **Jev** `choice` on readability | Confidence shown only as a hint |
 | Unit normalisation, breakdown, review points | Deterministic TS (`lib/calc.ts`, `lib/review.ts`) | Unit-tested |
-| Plain-language explanation + suggested question | OpenRouter text model | Input = computed facts JSON; numbers inserted by code via placeholders; any digit in model text not in facts → regenerate once, else template text |
+| Every sentence containing a number | Deterministic templates in `lib/review.ts` | AI never produces numeric text |
+| Short non-numeric context ("why this matters", tone-adapted suggested question) | OpenRouter text model | Output schema forbids digits (rejected if any digit appears → template fallback). Optional; report works fully without it |
 
 If the eval shows Jev underperforms on a task, report to the user before changing roles.
 
@@ -80,7 +85,12 @@ If the eval shows Jev underperforms on a task, report to the user before changin
 - `impliedRate = goldValue / netWt` (₹ per gram of net metal, at stated purity).
 - `billedGoldWt = goldValue / goldRate` when both known.
 - `metalSharePct = goldValue / total`; `makingPct = (Σ making + Σ wastage) / goldValue`.
-- GST check base: `taxable = subtotal ?? (Σ goldValue + Σ charges)`; expected = 3 % × taxable.
+- Charges: `discount`-type charges and `Estimate.discount` are subtracted (stored positive). 
+- GST check base: `taxable = subtotal ?? (Σ goldValue + Σ non-discount charges − discounts)`.
+- `taxMode = exclusive`: expected `gst = 3 % × taxable`, `total = taxable + gst`.
+- `taxMode = inclusive`: expected `gst = total × 3/103`; check line sum = total.
+- `taxMode = unknown`: try both; if exactly one reconciles, use it (shown as "assumed"); if neither, R1; if both ambiguous, GST check goes to "Can't check".
+- The 3 % rule applies only when `saleType = retail_sale`. `job_work` or `unknown` → GST check skipped with explanation (job work on customer-supplied gold is taxed differently).
 - Tolerance: max(₹2, 0.1 %) for money; max(0.01 g, 0.5 %) for weight.
 - Board-rate input normalised to ₹/g; compared only if its purity equals the item's purity.
 - No "total ÷ fine gold" metric anywhere.
@@ -94,7 +104,7 @@ If the eval shows Jev underperforms on a task, report to the user before changin
 | R3 | `billedGoldWt ≈ grossWt` while stone weight > 0 | Ask | "Gold appears charged on X g, which includes Y g of stones. Ask which weight the gold rate was applied to." ₹ at stake = rate × stone g |
 | R4 | Making `per_g`/`pct` computed on gross weight while stones present | Ask | Same pattern |
 | R5 | Board rate (same purity) given and `impliedRate > board × 1.01` | Ask | "₹Z/g above the board rate you entered. Ask what's included." |
-| R6 | GST % ≠ 3 % of taxable value; or a 5 % rate applied to making | Ask | Cite: CBIC gems & jewellery FAQ — 3 % on total value incl. making, even if shown separately. A separate 3 % line is fine and not flagged |
+| R6 | Retail sale only: GST ≠ 3 % of taxable value (per taxMode); or a 5 % rate applied to making | Ask | Cite: CBIC gems & jewellery FAQ — 3 % on total value incl. making, even if shown separately. A separate 3 % line is fine and not flagged |
 | R7 | Both making and wastage/VA charged | Good to know | "Some jewellers charge both; ask what each covers." Not a fault |
 | R8 | Purity missing/unknown | Ask | "Ask for purity in writing, e.g. 22K916." |
 | R9 | HUID not mentioned | Good to know | BIS Care app verify tip |
@@ -122,8 +132,8 @@ Single Next.js (App Router) + TypeScript + Tailwind app.
 - `app/page.tsx` home · `app/check/page.tsx` confirm + report · `app/compare/page.tsx` (stretch).
 - `app/api/extract/route.ts` · `app/api/explain/route.ts`.
 - `lib/openrouter.ts`, `lib/jev.ts` (server-only), `lib/schema.ts`, `lib/calc.ts`, `lib/review.ts`.
-- Env: `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY`, `OPENROUTER_MODEL`, `DAILY_REQUEST_CAP`. `.env.example` committed, `.env.local` ignored.
-- Budget protection: (a) hard spend limit set on the OpenRouter key in its dashboard (user action), (b) global daily request cap enforced in-app, (c) per-IP limit as a soft extra, (d) image ≤ 4 MB, resized client-side.
+- Env: `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY`, `OPENROUTER_MODEL`. `.env.example` committed, `.env.local` ignored.
+- Budget protection: (a) **primary** — hard spend limit on the OpenRouter key set in its dashboard (user action; enforced by the provider across all instances); same for TypeSafe if it offers one; (b) per-IP rate limit (best-effort, per instance — documented as such, not relied on); (c) image ≤ 4 MB, resized client-side; (d) one extraction call per estimate (no hidden loops beyond the single retry). A shared persistent counter (e.g. Upstash) is skipped; add if the demo link is shared widely.
 - No keys: samples run on precomputed truth JSON with a visible "Demo mode — AI not connected" banner; upload disabled. Never presented as live AI.
 
 ## 10. Error handling
@@ -135,8 +145,8 @@ Single Next.js (App Router) + TypeScript + Tailwind app.
 
 ## 11. Testing & verification
 
-- vitest: calc + review rules against every truth JSON (exact review-point match), hand-worked cases, carat conversion, missing-value paths, clean-slip zero-flag case, GST separate-3 %-line not flagged.
-- Grounding test: explanation text contains no number absent from facts.
+- vitest: calc + review rules against every truth JSON (exact review-point match), hand-worked cases, carat conversion, missing-value paths, clean-slip zero-flag case, GST separate-3 %-line not flagged, inclusive vs exclusive GST, discount subtracted, job-work skips GST rule.
+- Grounding test: AI output containing any digit is rejected and replaced by template text.
 - Manual: demo flow at 390 px and desktop; refresh keeps state; `next build` passes; client bundle grep for key prefixes.
 
 ## 12. Deliverables beyond the app
@@ -148,4 +158,4 @@ Single Next.js (App Router) + TypeScript + Tailwind app.
 - CBIC gems & jewellery FAQ (Q7) via [TaxTMI](https://www.taxtmi.com/article/detailed?id=13416) — 3 % GST on total value incl. making.
 - [BIS circular 23-07-2021](https://services.bis.gov.in/tmp/Circular_khfe_2021-07-23.pdf) — 20K/23K/24K added to IS 1417.
 - [BIS hallmarking FAQ](https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq) — grades incl. 24KS (995).
-- 9K (375) addition in 2025 reported by secondary sources only; verify before relying on it.
+- 9K (375): reported in 2025 by secondary sources; a second reviewer reports it in BIS LIMS listings. Kept in the model.
