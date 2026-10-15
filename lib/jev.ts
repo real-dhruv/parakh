@@ -1,7 +1,7 @@
 import { choice, Image, TypeSafeClient } from "@typesafe-ai/sdk";
 import type { ChargeType } from "./schema";
 
-const CHARGE_CRITERIA = {
+export const CHARGE_CRITERIA = {
   making: "Labour / making charge for crafting the piece (e.g. MC, Making, Labour, Ghadai, Mazdoori)",
   wastage: "Wastage or value-addition charge for metal lost in making (e.g. Wastage, Wst, VA, Value Addition, Ghaat)",
   stone: "Price of stones, diamonds, gems, kundan or polki set in the piece",
