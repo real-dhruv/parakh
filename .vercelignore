@@ -1,0 +1,7 @@
+.env*
+!.env.example
+eval/results
+eval/photos
+.hallmark
+.next
+node_modules
