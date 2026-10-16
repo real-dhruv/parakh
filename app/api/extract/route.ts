@@ -1,5 +1,5 @@
 import { readChain, readEstimate, toEstimate, type ReadResult } from "@/lib/extract";
-import { classifyLabels, jevEnabled, photoQuality, type QualityDecision } from "@/lib/jev";
+import { classifyLabels, jevEnabled } from "@/lib/jev";
 import type { Estimate } from "@/lib/schema";
 
 export const maxDuration = 60;
@@ -20,8 +20,7 @@ function limited(ip: string) {
 const err = (status: number, message: string) => Response.json({ error: message }, { status });
 
 export async function POST(req: Request) {
-  const chain = readChain();
-  if (!chain.length) return err(503, "AI is not connected on this server (demo mode).");
+  if (!readChain("text").length) return err(503, "AI is not connected on this server (demo mode).");
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
   if (limited(ip)) return err(429, "Too many checks from this connection. Please try again in an hour.");
 
@@ -34,14 +33,12 @@ export async function POST(req: Request) {
   if (text && text.length > 8000) return err(400, "That text is too long for one estimate.");
 
   try {
-    const base64 = imageDataUrl?.split(",")[1];
-    const [read, jevQuality] = await Promise.all([
-      readFirstWorking({ imageDataUrl, text }, chain),
-      base64 && jevEnabled() ? photoQuality(base64).catch(() => null) : Promise.resolve<QualityDecision | null>(null),
-    ]);
+    // Photo clarity comes from the reader model only. Jev was evaluated for this and called a blurred
+    // slip "clear" (0.91 confidence) while the reader flagged it, so Jev is kept for label sorting only.
+    const read = await readFirstWorking({ imageDataUrl, text }, readChain(imageDataUrl ? "image" : "text"));
     const o = read.out;
     if (!o.isJewelleryEstimate || !o.items.length) return err(422, "This doesn't look like a jewellery estimate. Try a clearer photo or paste the text.");
-    if (o.photoQuality === "unreadable" || jevQuality?.quality === "unreadable")
+    if (o.photoQuality === "unreadable")
       return err(422, "The photo is too unclear to read reliably. Retake it flat, in good light, or paste the text.");
 
     // Charge-label classification: Jev when available, otherwise the reader model's own guess.
@@ -55,14 +52,14 @@ export async function POST(req: Request) {
     const estimate: Estimate = toEstimate(o, types?.map((t) => t.type));
 
     // If either judge thinks the photo is partly unclear, ask the user to check every value.
-    const unclear = o.photoQuality === "partly_unclear" || jevQuality?.quality === "partly_unclear";
+    const unclear = o.photoQuality === "partly_unclear";
     if (unclear) markAllUnsure(estimate);
 
     return Response.json({
       estimate,
       meta: {
         model: read.model, ms: read.ms, costUsd: read.costUsd, labelSource,
-        quality: { reader: o.photoQuality, jev: jevQuality },
+        quality: o.photoQuality,
         unclear,
       },
     });

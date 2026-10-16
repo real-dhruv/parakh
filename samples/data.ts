@@ -68,7 +68,7 @@ export const SAMPLES: Sample[] = [
     title: "22K chain (clean bill)",
     style: "pos",
     header: ["AAROHI GOLD HOUSE", "Fictional shop · Synthetic sample", "Estimate #A-1043   15/10/2026"],
-    extraLines: ["CGST 1.5%  1,984.50   SGST 1.5%  1,984.50"],
+    extraLines: ["CGST 1.5%  1,984.50   SGST 1.5%  1,984.50", "HUID: A7C2K9"],
     estimate: est({
       shop: s("Aarohi Gold House", "AAROHI GOLD HOUSE"),
       items: [item({
@@ -189,6 +189,7 @@ export const SAMPLES: Sample[] = [
         lineTotal: f(42000, "Price          42,000"),
       })],
       subtotal: f(42000, "Price          42,000"),
+      gstPct: f(3, "Incl. GST 3%   1,223"),
       gstAmount: f(1223, "Incl. GST 3%   1,223"),
       total: f(42000, "TOTAL (incl. GST) 42,000"),
       taxMode: "inclusive",

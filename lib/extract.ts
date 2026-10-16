@@ -78,7 +78,7 @@ export async function chatJson(ref: string, prompt: string): Promise<{ json: unk
   const res = await fetch(cfg.url, {
     method: "POST",
     headers: { Authorization: `Bearer ${cfg.key()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, temperature: 0, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model, temperature: 0, max_tokens: 2000, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
     signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -86,13 +86,12 @@ export async function chatJson(ref: string, prompt: string): Promise<{ json: unk
   return { json: JSON.parse(data.choices[0].message.content), costUsd: data.usage?.cost ?? null };
 }
 
-/** Reading order for the app: READ_MODELS if set, else Groq (free tier) first, OpenRouter as fallback. */
-export function readChain(): string[] {
+/** Reading order: READ_MODELS if set, else Groq (free tier) first, OpenRouter as fallback.
+ *  Photos need a vision model; gpt-oss is text-only, so it handles pasted text. */
+export function readChain(kind: "image" | "text"): string[] {
   const fromEnv = process.env.READ_MODELS?.split(",").map((x) => x.trim()).filter(Boolean);
-  const chain = fromEnv ?? [
-    `groq:${process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"}`,
-    `openrouter:${process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5"}`,
-  ];
+  const groq = kind === "image" ? process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b" : process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+  const chain = fromEnv ?? [`groq:${groq}`, `openrouter:${process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5"}`];
   return chain.filter(hasKey);
 }
 
@@ -114,7 +113,7 @@ export async function readEstimate(input: { imageDataUrl?: string; text?: string
     const res = await fetch(cfg.url, {
       method: "POST",
       headers: { Authorization: `Bearer ${cfg.key()}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, temperature: 0, response_format, ...(provider === "openrouter" ? { usage: { include: true } } : {}) }),
+      body: JSON.stringify({ model, messages, temperature: 0, max_tokens: 4000, response_format, ...(provider === "openrouter" ? { usage: { include: true } } : {}) }),
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);

@@ -11,7 +11,7 @@ import type { Estimate } from "../lib/schema";
 
 const MODELS = (process.env.EVAL_MODELS?.split(",") ?? [
   // free tier first
-  `groq:${process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"}`,
+  `groq:${process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b"}`,
   "anthropic/claude-haiku-5.5",
   "openai/gpt-6-luna",
   "google/gemini-3.1-flash-lite",
@@ -64,6 +64,19 @@ function score(truth: Estimate, pred: Estimate) {
   return { correct, present, nullOk, nullTotal, hallucinated };
 }
 
+/** Groq's free tier allows ~8k tokens/min: on a 429, wait the suggested time (max 3 tries). */
+async function withRateLimitWait<T>(fn: () => Promise<T>): Promise<T> {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) {
+      const m = String(e).match(/ 429:.*?try again in ([\d.]+)(m?s)/);
+      if (!m || i >= 2) throw e;
+      const ms = Math.ceil(parseFloat(m[1]) * (m[2] === "ms" ? 1 : 1000)) + 1000;
+      console.log(`  rate limited, waiting ${Math.round(ms / 1000)} s`);
+      await new Promise((r) => setTimeout(r, ms));
+    }
+  }
+}
+
 // ---------- 1. extraction ----------
 async function extraction() {
   const inputs: { s: Sample; file: string; kind: "rendered" | "photo" }[] = [...SAMPLES, BLURRED].map((s) => ({ s, file: `public/samples/${s.id}.png`, kind: "rendered" as const }));
@@ -82,7 +95,7 @@ async function extraction() {
       const url = `data:${mime};base64,${readFileSync(file).toString("base64")}`;
       r.n++;
       try {
-        const res = await readEstimate({ imageDataUrl: url }, model);
+        const res = await withRateLimitWait(() => readEstimate({ imageDataUrl: url }, model));
         guard(res.costUsd);
         r.cost += res.costUsd ?? 0;
         r.ms.push(res.ms);
