@@ -43,7 +43,7 @@ Rules — accuracy matters more than completeness:
 - goldRate is ₹ per gram. If the slip gives a rate per 10 g, divide by 10 and keep the original text in source.
 - purity: one of ${PURITIES.join(", ")}. 22K = 916, 18K = 750, 14K = 585, 20K = 833, 23K = 958, 24K = 995 or 999. null if not stated. Use "unknown" only if a purity is written but you cannot map it.
 - If only one weight is printed with no stones, put it in grossWt, leave netWt null, and set hasStones false. hasStones true if any stone/diamond weight or charge is listed; null if unclear.
-- charges: every per-item line other than gold value (making, wastage/VA, stones/diamonds, hallmark, other, discounts). label = the slip's own wording. basis "pct" if given as a %, "per_g" if per gram, "flat" otherwise; rate = the % or per-gram number. Discounts are positive amounts with typeGuess "discount".
+- charges: every per-item line other than gold value (making, wastage/VA, stones/diamonds, hallmark, other, discounts). NEVER put GST / CGST / SGST / IGST / any tax in charges (tax goes only in gstPct / gstAmount), and NEVER put a total or subtotal line (Total, Jod, Kul, Amount, Taxable value) in charges. label = the slip's own wording. basis "pct" if given as a %, "per_g" if per gram, "flat" otherwise; rate = the % or per-gram number. Discounts are positive amounts with typeGuess "discount".
 - lineTotal = the item's printed pre-GST amount, if printed.
 - GST: if CGST + SGST (or IGST) are shown, gstPct = combined %, gstAmount = combined amount (source = one of the lines). If GST is split across several rates, gstPct null and gstAmount = total GST.
 - discount = bill-level discount line, positive. taxMode "inclusive" if prices are stated as including GST, "exclusive" if GST is added on top, else "unknown".
@@ -116,7 +116,7 @@ export async function readEstimate(input: { imageDataUrl?: string; text?: string
       method: "POST",
       headers: { Authorization: `Bearer ${cfg.key()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages, temperature: 0, max_tokens: 4000, response_format, ...(provider === "openrouter" ? { usage: { include: true } } : {}) }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
@@ -132,6 +132,25 @@ export async function readEstimate(input: { imageDataUrl?: string; text?: string
   throw new Error("Could not read a valid estimate from the model output.");
 }
 
+export const isTaxLabel = (label: string) => /\b(c|s|i|u)?gst\b|\btax\b|\bvat\b/i.test(label);
+const isTotalLabel = (label: string) => /\b(sub\s*total|total|grand|jod|kul|net amount|amount|taxable|payable)\b/i.test(label);
+
+/** Models sometimes file tax or total lines as item charges, which double-counts them and makes a
+ *  correct slip look wrong. A "charge" that is tax, is labelled as a total, or equals a printed total
+ *  is dropped. Idempotent; run before label classification so positions stay aligned. */
+export function cleanCharges(o: LlmEstimate): LlmEstimate {
+  const totals = [o.subtotal.value, o.total.value, o.gstAmount.value, ...o.items.flatMap((it) => [it.lineTotal.value, it.goldValue.value])]
+    .filter((v): v is number => v !== null);
+  for (const it of o.items) {
+    it.charges = it.charges.filter((c) => {
+      if (isTaxLabel(c.label) || isTotalLabel(c.label)) return false;
+      const a = c.amount.value;
+      return !(a !== null && c.typeGuess !== "discount" && totals.some((t) => Math.abs(t - a) <= 1));
+    });
+  }
+  return o;
+}
+
 /** Keyword fallback when Jev and the model are unavailable. */
 export function keywordType(label: string): ChargeType | null {
   const l = label.toLowerCase();
@@ -145,6 +164,7 @@ export function keywordType(label: string): ChargeType | null {
 
 /** Model output → app Estimate. Nothing is confirmed until the user confirms it. */
 export function toEstimate(o: LlmEstimate, chargeTypes?: (ChargeType | null)[]): Estimate {
+  cleanCharges(o);
   const unsure = new Set(o.unsure);
   const f = <T,>(x: { value: T | null; source: string | null }, path: string) => ({ value: x.value, source: x.value === null ? null : x.source, confirmed: false, unsure: unsure.has(path) });
   let k = 0;
@@ -159,6 +179,8 @@ export function toEstimate(o: LlmEstimate, chargeTypes?: (ChargeType | null)[]):
         grossWt: wt(it.grossWt, "grossWt"), stoneWt: wt(it.stoneWt, "stoneWt"), netWt: wt(it.netWt, "netWt"),
         hasStones: it.hasStones,
         goldRate: f(it.goldRate, `${p}.goldRate`), goldValue: f(it.goldValue, `${p}.goldValue`), lineTotal: f(it.lineTotal, `${p}.lineTotal`),
+        // Tax is bill-level only. A model that also lists GST as an item charge double-counts it and
+        // would make a correct slip look wrong, so tax lines are dropped here whatever the model did.
         charges: it.charges.map((c, j) => ({
           label: c.label,
           type: chargeTypes?.[k++] ?? c.typeGuess,

@@ -10,7 +10,7 @@ export type Meta = {
   labelSource?: "jev" | "model";
   unclear?: boolean;
 };
-export type Session = { estimate: Estimate; meta: Meta; step: "confirm" | "report"; boardRate?: number | null };
+export type Session = { id: number; estimate: Estimate; meta: Meta; step: "confirm" | "report" };
 
 const KEY = "parakh:session";
 // The uploaded image stays in memory only (lost on refresh by design; see privacy note).

@@ -110,7 +110,8 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
   const fieldOf = (pick: (d: Estimate) => F) => ({ f: pick(e), set: (fn: (f: F) => void) => update((d) => fn(pick(d))) });
 
   return (
-    <div className="max-w-[34rem] space-y-[var(--space-md)]">
+    <div className="lg:grid lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] lg:gap-[var(--space-2xl)]">
+    <div className="min-w-0 space-y-[var(--space-md)]">
       <div>
         <h1 className="font-display text-[length:var(--text-2xl)] leading-tight font-medium">Check what we read</h1>
         <p className="mt-2 text-[15px] text-ink-2 leading-relaxed">
@@ -131,7 +132,7 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
       </div>
 
       {image && (
-        <details className="border-y border-rule" open={!!meta.unclear}>
+        <details className="border-y border-rule lg:hidden" open={!!meta.unclear}>
           <summary className="cursor-pointer py-[var(--space-xs)] font-medium">View the slip</summary>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="The estimate slip" className="w-full max-w-sm border border-rule mb-[var(--space-sm)]" />
@@ -154,6 +155,8 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
             <div key={j} className="pt-1">
               <div className="flex items-center gap-2 pt-2 text-[13px]">
                 <span className="text-ink-2">Charge</span>
+                <button onClick={() => update((d) => { d.items[i].charges.splice(j, 1); })}
+                  className="py-1 text-[length:var(--text-xs)] text-ink-2 underline underline-offset-4" aria-label={`Remove ${c.label}`}>Remove</button>
                 <select value={c.type} aria-label={`Type of ${c.label}`}
                   onChange={(ev) => update((d) => { d.items[i].charges[j].type = ev.target.value as (typeof CHARGE_TYPES)[number]; })}
                   className="ml-auto rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-2 py-1 text-[13px] text-ink font-medium">
@@ -189,6 +192,16 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
           {remaining > 0 ? `Check ${remaining} highlighted value${remaining > 1 ? "s" : ""} first` : "Looks right. Check it"}
         </button>
       </div>
+    </div>
+    {image && (
+      <aside className="hidden lg:block">
+        <figure className="sticky top-[var(--space-md)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="The estimate slip" className="w-full max-w-md rounded-[var(--radius-figure)] border border-rule bg-paper-2" />
+          <figcaption className="mt-[var(--space-2xs)] text-[length:var(--text-xs)] text-ink-2">The slip you&apos;re checking. Compare each value line by line.</figcaption>
+        </figure>
+      </aside>
+    )}
     </div>
   );
 }

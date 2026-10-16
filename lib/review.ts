@@ -19,7 +19,7 @@ export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const g = (n: number) => `${+n.toFixed(3)} g`;
 
 // Plain charge names for titles and questions; the slip's own label stays visible in the source trace.
-const CHARGE_WORD: Record<string, string> = { making: "making charge", wastage: "wastage / VA" };
+const CHARGE_WORD: Record<string, string> = { making: "making", wastage: "wastage / VA" };
 const itemName = (it: Item, i: number) => it.description.value || `Item ${i + 1}`;
 const titled = (single: boolean, name: string, t: string) => (single ? t.charAt(0).toUpperCase() + t.slice(1) : `${name}: ${t}`);
 
@@ -104,7 +104,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
           points.push({
             id: "R1", tier: "mismatch", title: T(`${CHARGE_WORD[ch.type]} doesn't match its rate`),
             detail: `${inr(r)}/g × ${g(c.netWtG)} = ${inr(r * c.netWtG)}, but the slip shows ${inr(amt)}.`,
-            question: `How was the ${CHARGE_WORD[ch.type]} calculated?`,
+            question: `How was the ${CHARGE_WORD[ch.type]} charge calculated?`,
             refs: [...ref, `${p}.netWt`],
           });
         }

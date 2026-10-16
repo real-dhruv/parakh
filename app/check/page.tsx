@@ -20,10 +20,10 @@ export default function Check() {
       {s === undefined ? null : s === null ? (
         <p className="py-10 text-center text-ink-2">No estimate yet. <Link href="/" className="underline">Start a check</Link>.</p>
       ) : s.step === "confirm" ? (
-        <Confirm initial={s.estimate} meta={s.meta} image={getImage() ?? (s.meta.sampleId ? `/samples/${s.meta.sampleId}.png` : null)}
+        <Confirm key={`c${s.id}`} initial={s.estimate} meta={s.meta} image={getImage() ?? (s.meta.sampleId ? `/samples/${s.meta.sampleId}.png` : null)}
           onDone={(e) => update({ ...s, estimate: confirmAll(e), step: "report" })} />
       ) : (
-        <Report estimate={s.estimate} meta={s.meta} onEdit={() => update({ ...s, step: "confirm" })} />
+        <Report key={`r${s.id}`} estimate={s.estimate} meta={s.meta} onEdit={() => update({ ...s, step: "confirm" })} />
       )}
     </main>
   );

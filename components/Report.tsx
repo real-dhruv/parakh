@@ -151,8 +151,10 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
       <h1 className="mt-[var(--space-2xs)] font-display font-medium text-[length:var(--text-2xl)] sm:text-[length:var(--text-display)] leading-[1.08] tracking-[-0.01em]">{headline}</h1>
       <p className="mt-[var(--space-sm)] text-[length:var(--text-md)] leading-relaxed">
         {hero && <>You effectively pay <b className="tnum">{inr(hero.implied)}</b> per gram of gold; the slip states <span className="tnum">{inr(hero.written)}</span>. </>}
-        {counts.mismatch > 0 && <>{plural(counts.mismatch, "line doesn't", "lines don't")} add up on the slip&apos;s own figures. </>}
-        {counts.ask > 0 && <>{plural(counts.ask, "point is", "points are")} worth asking the jeweller about; many have good answers. </>}
+        {/* Don't repeat what the headline already says. */}
+        {counts.mismatch > 0 && stake >= 1 && <>{plural(counts.mismatch, "line doesn't", "lines don't")} add up on the slip&apos;s own figures. </>}
+        {counts.mismatch > 0 && stake < 1 && <>Every other line reconciles; the finding below shows exactly where. </>}
+        {counts.ask > 0 && (stake >= 1 || counts.mismatch > 0) && <>{plural(counts.ask, "point is", "points are")} worth asking the jeweller about; many have good answers. </>}
         {main.length === 0 && <>The slip&apos;s arithmetic reconciles and none of the billing patterns we check for appear.</>}
       </p>
       {!meta.demo && meta.model && (

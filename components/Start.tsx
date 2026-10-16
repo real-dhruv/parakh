@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { save, setImage, toDataUrl, unconfirmed, type Meta } from "@/lib/store";
 import type { Estimate } from "@/lib/schema";
 import type { Sample } from "@/samples/data";
@@ -17,13 +17,21 @@ export default function Start({ samples, featured, notes }: { samples: SampleCar
   const [pasting, setPasting] = useState(false);
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  // Next keeps this page alive (hidden) after navigating to /check. Clear the transient
+  // "reading" state when it's hidden, or coming back shows a frozen loading screen.
+  useLayoutEffect(() => () => { setBusy(null); setPreview(null); setError(null); }, []);
 
   async function run(body: { imageDataUrl?: string; text?: string }, sample?: SampleCard) {
     setError(null);
     setBusy(sample ? sample.id : "upload");
     setPreview(sample ? `/samples/${sample.id}.png` : body.imageDataUrl ?? null);
     try {
-      const res = await fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch("/api/extract", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45_000),
+      }).catch((e) => {
+        throw new Error(e?.name === "TimeoutError" ? "Reading took too long. Please try again, or paste the text." : "Couldn't reach Parakh. Check your connection and try again.");
+      });
       const data = await res.json();
       if (res.status === 503 && sample) {
         // No AI on this server: show the sample's answer key, clearly labelled as demo mode.
@@ -40,7 +48,7 @@ export default function Start({ samples, featured, notes }: { samples: SampleCar
 
   function go(estimate: Estimate, meta: Meta, image: string | null) {
     setImage(image);
-    save({ estimate, meta, step: "confirm" });
+    save({ id: Date.now(), estimate, meta, step: "confirm" });
     router.push("/check");
   }
 

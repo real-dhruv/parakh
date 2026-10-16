@@ -125,3 +125,25 @@ describe("answer keys, checked without the engine", () => {
     });
   }
 });
+
+describe("extraction guard", () => {
+  it("tax lines are never item charges (would double-count GST)", async () => {
+    const { isTaxLabel } = await import("./extract");
+    for (const l of ["GST", "GST 3%", "CGST 1.5%", "SGST", "IGST", "Tax", "VAT"]) expect(isTaxLabel(l)).toBe(true);
+    for (const l of ["Ghadai", "Making", "Stone Chgs", "Wastage", "Hallmark", "MC Disc 20%"]) expect(isTaxLabel(l)).toBe(false);
+  });
+});
+
+describe("charge cleaning", () => {
+  it("drops tax and total lines filed as item charges, keeps real charges", async () => {
+    const { cleanCharges } = await import("./extract");
+    const V = (value: number | null, source: string | null = null) => ({ value, source });
+    const W = { value: null, source: null, unit: null };
+    const ch = (label: string, amount: number, typeGuess = "other") => ({ label, typeGuess, basis: null, rate: V(null), amount: V(amount) });
+    const o = {
+      items: [{ lineTotal: V(83160), goldValue: V(75600), charges: [ch("Wastage 10%", 7560, "wastage"), ch("GST", 2495), ch("Jod", 83160), ch("Misc", 83160), ch("Disc", 500, "discount")], grossWt: W, stoneWt: W, netWt: W }],
+      subtotal: V(83160), total: V(85655), gstAmount: V(2495),
+    } as unknown as Parameters<typeof cleanCharges>[0];
+    expect(cleanCharges(o).items[0].charges.map((c) => c.label)).toEqual(["Wastage 10%", "Disc"]);
+  });
+});

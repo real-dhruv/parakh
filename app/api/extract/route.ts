@@ -1,4 +1,4 @@
-import { readChain, readEstimate, toEstimate, type ReadResult } from "@/lib/extract";
+import { cleanCharges, readChain, readEstimate, toEstimate, type ReadResult } from "@/lib/extract";
 import { classifyLabels, jevEnabled } from "@/lib/jev";
 import type { Estimate } from "@/lib/schema";
 
@@ -42,6 +42,7 @@ export async function POST(req: Request) {
       return err(422, "The photo is too unclear to read reliably. Retake it flat, in good light, or paste the text.");
 
     // Charge-label classification: Jev when available, otherwise the reader model's own guess.
+    cleanCharges(o); // before Jev, so label positions stay aligned with toEstimate
     const labels = o.items.flatMap((it) => it.charges.map((c) => c.label));
     let labelSource: "jev" | "model" = "model";
     let types: Awaited<ReturnType<typeof classifyLabels>> | null = null;
