@@ -25,18 +25,21 @@ export default function Start({ samples, featured, notes }: { samples: SampleCar
     setError(null);
     setBusy(sample ? sample.id : "upload");
     setPreview(sample ? `/samples/${sample.id}.png` : body.imageDataUrl ?? null);
+    // A sample must never end in an error in front of a reviewer: if the AI can't answer
+    // (not configured, rate-limited, out of credit, slow), show its answer key, clearly labelled.
+    const sampleFallback = (reason: "off" | "busy") =>
+      go(unconfirmed(sample!.estimate), { demo: reason, sampleId: sample!.id }, `/samples/${sample!.id}.png`);
     try {
       const res = await fetch("/api/extract", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(sample ? 25_000 : 45_000),
       }).catch((e) => {
+        if (sample) return null;
         throw new Error(e?.name === "TimeoutError" ? "Reading took too long. Please try again, or paste the text." : "Couldn't reach Parakh. Check your connection and try again.");
       });
-      const data = await res.json();
-      if (res.status === 503 && sample) {
-        // No AI on this server: show the sample's answer key, clearly labelled as demo mode.
-        return go(unconfirmed(sample.estimate), { demo: true, sampleId: sample.id }, `/samples/${sample.id}.png`);
-      }
+      if (!res) return sampleFallback("busy");
+      const data = await res.json().catch(() => ({}));
+      if (sample && !res.ok) return sampleFallback(res.status === 503 ? "off" : "busy");
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
       go(data.estimate, { ...data.meta, sampleId: sample?.id }, body.imageDataUrl ?? null);
     } catch (e) {

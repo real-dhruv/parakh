@@ -143,7 +143,7 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
     <article className="max-w-[34rem]">
       {meta.demo && (
         <p className="mb-[var(--space-md)] border-y border-ask py-[var(--space-xs)] text-[length:var(--text-sm)] text-ask">
-          <b>Demo mode: AI not connected.</b> This sample&apos;s answer key was loaded instead of a live AI reading. Every check below is the real engine.
+          <b>Demo mode: {meta.demo === "busy" ? "the AI reader is busy right now" : "AI not connected"}.</b> This sample&apos;s answer key was loaded instead of a live AI reading. Every check below is the real engine.
         </p>
       )}
 

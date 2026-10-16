@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("extract failed:", e instanceof Error ? e.message : e);
-    return err(502, "We couldn't read this estimate right now. Try again, paste the text, or use a sample.");
+    return err(502, "The AI reader is busy right now. Please try again in a minute, or try a sample.");
   }
 }
 

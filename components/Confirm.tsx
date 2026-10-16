@@ -119,7 +119,7 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
         </p>
         {meta.demo && (
           <p className="mt-[var(--space-sm)] border-y border-ask py-[var(--space-xs)] text-ask text-[length:var(--text-sm)]">
-            <b>Demo mode: AI not connected.</b> These values come from the sample&apos;s answer key, not a live AI reading.
+            <b>Demo mode: {meta.demo === "busy" ? "the AI reader is busy right now" : "AI not connected"}.</b> These values come from the sample&apos;s answer key, not a live AI reading.{meta.demo === "busy" && " Try again in a minute for a live read."}
           </p>
         )}
         {!meta.demo && meta.model && (

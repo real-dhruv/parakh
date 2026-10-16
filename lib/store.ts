@@ -2,7 +2,7 @@
 import type { Estimate } from "./schema";
 
 export type Meta = {
-  demo?: boolean; // no AI: sample answer key shown, clearly labelled
+  demo?: "off" | "busy"; // sample answer key shown instead of a live read: AI not configured, or unavailable right now
   sampleId?: string;
   model?: string;
   ms?: number;
