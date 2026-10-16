@@ -18,6 +18,8 @@ export type Report = { calc: EstimateCalc; points: ReviewPoint[]; cantCheck: Can
 export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const g = (n: number) => `${+n.toFixed(3)} g`;
 
+// Plain charge names for titles and questions; the slip's own label stays visible in the source trace.
+const CHARGE_WORD: Record<string, string> = { making: "making charge", wastage: "wastage / VA" };
 const itemName = (it: Item, i: number) => it.description.value || `Item ${i + 1}`;
 const titled = (single: boolean, name: string, t: string) => (single ? t.charAt(0).toUpperCase() + t.slice(1) : `${name}: ${t}`);
 
@@ -92,26 +94,26 @@ export function review(e: Estimate, board?: BoardRate): Report {
       if (ch.basis === "per_g" && c.netWtG !== null && !moneyClose(amt, r * c.netWtG)) {
         if (c.grossWtG !== null && c.stoneWtG && moneyClose(amt, r * c.grossWtG)) {
           points.push({
-            id: "R4", tier: "ask", title: T(`${ch.label} charged on gross weight`),
+            id: "R4", tier: "ask", title: T(`${CHARGE_WORD[ch.type]} charged on gross weight`),
             detail: `${inr(r)}/g × gross ${g(c.grossWtG)} = ${inr(amt)}. On net metal weight (${g(c.netWtG)}) it would be ${inr(r * c.netWtG)}.`,
-            question: `Is ${ch.label} charged on the stone weight too?`,
+            question: `Is the ${CHARGE_WORD[ch.type]} charged on the stone weight too?`,
             atStake: amt - r * c.netWtG,
             refs: [...ref, `${p}.grossWt`, `${p}.stoneWt`],
           });
         } else if (slip(ch.rate) !== null && slip(ch.amount) !== null && c.netWtFrom === "slip") {
           points.push({
-            id: "R1", tier: "mismatch", title: T(`${ch.label} doesn't match its rate`),
+            id: "R1", tier: "mismatch", title: T(`${CHARGE_WORD[ch.type]} doesn't match its rate`),
             detail: `${inr(r)}/g × ${g(c.netWtG)} = ${inr(r * c.netWtG)}, but the slip shows ${inr(amt)}.`,
-            question: `How was ${ch.label} calculated?`,
+            question: `How was the ${CHARGE_WORD[ch.type]} calculated?`,
             refs: [...ref, `${p}.netWt`],
           });
         }
       }
       if (ch.basis === "pct" && c.goldValue !== null && !moneyClose(amt, (r / 100) * c.goldValue)) {
         points.push({
-          id: "R4", tier: "ask", title: T(`${ch.label} % doesn't match the gold value`),
+          id: "R4", tier: "ask", title: T(`${CHARGE_WORD[ch.type]} % doesn't match the gold value`),
           detail: `${r}% of the gold value ${inr(c.goldValue)} is ${inr((r / 100) * c.goldValue)}, but the slip shows ${inr(amt)}.`,
-          question: `What is the ${r}% ${ch.label} applied to?`,
+          question: `What is the ${r}% ${CHARGE_WORD[ch.type]} applied to?`,
           atStake: amt - (r / 100) * c.goldValue,
           refs: [...ref, `${p}.goldValue`],
         });

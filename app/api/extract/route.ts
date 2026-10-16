@@ -33,8 +33,8 @@ export async function POST(req: Request) {
   if (text && text.length > 8000) return err(400, "That text is too long for one estimate.");
 
   try {
-    // Photo clarity comes from the reader model only. Jev was evaluated for this and called a blurred
-    // slip "clear" (0.91 confidence) while the reader flagged it, so Jev is kept for label sorting only.
+    // Photo clarity comes from the reader model only: in EVAL.md Jev added no signal over the reader on
+    // this step, so it is kept for charge-label sorting (44/44) and not called twice.
     const read = await readFirstWorking({ imageDataUrl, text }, readChain(imageDataUrl ? "image" : "text"));
     const o = read.out;
     if (!o.isJewelleryEstimate || !o.items.length) return err(422, "This doesn't look like a jewellery estimate. Try a clearer photo or paste the text.");

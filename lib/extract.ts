@@ -91,19 +91,21 @@ export async function chatJson(ref: string, prompt: string): Promise<{ json: unk
 export function readChain(kind: "image" | "text"): string[] {
   const fromEnv = process.env.READ_MODELS?.split(",").map((x) => x.trim()).filter(Boolean);
   const groq = kind === "image" ? process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b" : process.env.GROQ_MODEL || "openai/gpt-oss-20b";
-  const chain = fromEnv ?? [`groq:${groq}`, `openrouter:${process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5"}`];
+  const chain = fromEnv ?? [`groq:${groq}`, `openrouter:${process.env.OPENROUTER_MODEL || "google/gemini-3.1-flash-lite"}`];
   return chain.filter(hasKey);
 }
 
 export async function readEstimate(input: { imageDataUrl?: string; text?: string }, ref: string): Promise<ReadResult> {
   const { provider, model } = parseModelRef(ref);
   const cfg = PROVIDERS[provider];
+  // Anthropic rejects schemas with many nullable unions, so it gets the schema in the prompt like Groq.
+  const schemaMode = model.startsWith("anthropic/") ? "json_object" : cfg.schemaMode;
   const content: unknown[] = [{ type: "text", text: input.text ? `Estimate text:\n${input.text}` : "Read this estimate." }];
   if (input.imageDataUrl) content.push({ type: "image_url", image_url: { url: input.imageDataUrl } });
   // json_object providers don't take a schema, so the schema goes in the prompt.
-  const system = cfg.schemaMode === "json_object" ? `${EXTRACT_PROMPT}\n\nJSON schema:\n${JSON.stringify(jsonSchema)}` : EXTRACT_PROMPT;
+  const system = schemaMode === "json_object" ? `${EXTRACT_PROMPT}\n\nJSON schema:\n${JSON.stringify(jsonSchema)}` : EXTRACT_PROMPT;
   const messages: { role: string; content: unknown }[] = [{ role: "system", content: system }, { role: "user", content }];
-  const response_format = cfg.schemaMode === "json_object"
+  const response_format = schemaMode === "json_object"
     ? { type: "json_object" }
     : { type: "json_schema", json_schema: { name: "estimate", strict: false, schema: jsonSchema } };
 
