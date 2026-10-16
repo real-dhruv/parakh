@@ -173,7 +173,7 @@ ${Object.entries(ex.rows).map(([m, r]) => `| ${m} | ${r.correct}/${r.present} ($
 | Approach | Accuracy | Latency | Notes |
 |---|---|---|---|
 | Plain keyword rules (no AI) | ${lab.keyword.acc}/${lab.n} (${pctS(lab.keyword.acc, lab.n)}) | ~0 ms | misses: ${lab.keyword.misses.slice(0, 8).join(", ") || "none"} |
-| Jev (choice) | ${!lab.jevOn ? "not run (no TYPESAFE_API_KEY) | — | —" : `${lab.jev.acc}/${lab.n}`} (${pctS(lab.jev.acc, lab.n)}) | ${lab.jev.ms} ms | ${lab.jev.lowConf} labels below 0.6 confidence; confidence on wrong answers: ${lab.jev.wrongConf.map((c) => c.toFixed(2)).join(", ") || "n/a"}; misses: ${lab.jev.misses.join(", ") || "none"} |
+${lab.jevOn ? `| Jev (choice) | ${lab.jev.acc}/${lab.n} (${pctS(lab.jev.acc, lab.n)}) | ${lab.jev.ms} ms | ${lab.jev.lowConf} labels below 0.6 confidence; confidence on wrong answers: ${lab.jev.wrongConf.map((c) => c.toFixed(2)).join(", ") || "n/a"}; misses: ${lab.jev.misses.join(", ") || "none"} |` : "| Jev (choice) | not run (no TYPESAFE_API_KEY) | — | — |"}
 | ${lab.llm.model} | ${lab.llm.acc}/${lab.n} (${pctS(lab.llm.acc, lab.n)}) | ${lab.llm.ms} ms | cost $${lab.llm.cost ?? "?"}; misses: ${lab.llm.misses.join(", ") || "none"} |
 
 ## 3. "Is this photo clear enough?"
