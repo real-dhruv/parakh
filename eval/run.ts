@@ -1,15 +1,17 @@
 // Eval: which OpenRouter model reads slips best, and does Jev beat the alternatives on its two decisions?
-// Run: npm run eval            (needs OPENROUTER_API_KEY and TYPESAFE_API_KEY in .env.local)
+// Run: npm run eval   (uses whichever of GROQ_API_KEY / OPENROUTER_API_KEY / TYPESAFE_API_KEY are in .env.local)
 //      npm run eval -- --photos (also reads eval/photos/<sampleId>.jpg phone photos, if present)
 import { mkdirSync, readFileSync, existsSync, writeFileSync, readdirSync } from "node:fs";
-import { readWithOpenRouter, toEstimate, keywordType } from "../lib/extract";
+import { chatJson, hasKey, readEstimate, toEstimate, keywordType } from "../lib/extract";
 import { CHARGE_CRITERIA, classifyLabels, photoQuality } from "../lib/jev";
 import { review } from "../lib/review";
 import { BLURRED, SAMPLES, type Sample } from "../samples/data";
 import { LABELS } from "./labels";
 import type { Estimate } from "../lib/schema";
 
-const MODELS = process.env.EVAL_MODELS?.split(",") ?? [
+const MODELS = (process.env.EVAL_MODELS?.split(",") ?? [
+  // free tier first
+  `groq:${process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"}`,
   "anthropic/claude-haiku-5.5",
   "openai/gpt-6-luna",
   "google/gemini-3.1-flash-lite",
@@ -17,7 +19,7 @@ const MODELS = process.env.EVAL_MODELS?.split(",") ?? [
   // stronger tier: does paying more read slips better?
   "google/gemini-3.8-flash",
   "openai/gpt-5.4-mini",
-];
+]).filter(hasKey);
 const BUDGET_USD = 2;
 let spent = 0;
 const guard = (c: number | null) => {
@@ -80,7 +82,7 @@ async function extraction() {
       const url = `data:${mime};base64,${readFileSync(file).toString("base64")}`;
       r.n++;
       try {
-        const res = await readWithOpenRouter({ imageDataUrl: url }, model);
+        const res = await readEstimate({ imageDataUrl: url }, model);
         guard(res.costUsd);
         r.cost += res.costUsd ?? 0;
         r.ms.push(res.ms);
@@ -108,32 +110,26 @@ async function labelsEval(llmModel: string) {
   const kw = LABELS.map(([l]) => keywordType(l) ?? "other");
 
   let t0 = Date.now();
-  const jev = await classifyLabels(LABELS.map(([l]) => l));
+  const jevOn = !!process.env.TYPESAFE_API_KEY;
+  const jev = jevOn ? await classifyLabels(LABELS.map(([l]) => l)) : LABELS.map(() => ({ type: "other" as const, confidence: 0 }));
   const jevMs = Date.now() - t0;
 
   t0 = Date.now();
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: llmModel, temperature: 0, usage: { include: true },
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: `Classify each line from an Indian jewellery shop estimate into one type.\nTypes:\n${Object.entries(CHARGE_CRITERIA).map(([k, v]) => `- ${k}: ${v}`).join("\n")}\nLines:\n${LABELS.map(([l], i) => `${i}. ${l}`).join("\n")}\nReturn JSON {"types": [type for each line, in order]}.` }],
-    }),
-  });
-  const data = await res.json();
-  guard(data.usage?.cost ?? 0);
+  const { json, costUsd } = await chatJson(llmModel,
+    `Classify each line from an Indian jewellery shop estimate into one type.\nTypes:\n${Object.entries(CHARGE_CRITERIA).map(([k, v]) => `- ${k}: ${v}`).join("\n")}\nLines:\n${LABELS.map(([l], i) => `${i}. ${l}`).join("\n")}\nReturn JSON {"types": [type for each line, in order]}.`);
+  guard(costUsd);
   const llmMs = Date.now() - t0;
-  const llm: string[] = JSON.parse(data.choices[0].message.content).types;
+  const llm: string[] = (json as { types: string[] }).types;
 
   const acc = (xs: string[]) => xs.filter((x, i) => x === truth[i]).length;
   const lowConf = jev.filter((j) => j.confidence < 0.6).length;
   const jevWrongConf = jev.filter((j, i) => j.type !== truth[i]).map((j) => j.confidence);
   return {
     n: LABELS.length,
+    jevOn,
     keyword: { acc: acc(kw), misses: LABELS.filter((_, i) => kw[i] !== truth[i]).map(([l]) => l) },
     jev: { acc: acc(jev.map((j) => j.type)), ms: jevMs, lowConf, wrongConf: jevWrongConf, misses: LABELS.filter((_, i) => jev[i].type !== truth[i]).map(([l]) => l) },
-    llm: { model: llmModel, acc: acc(llm), ms: llmMs, cost: data.usage?.cost ?? null, misses: LABELS.filter((_, i) => llm[i] !== truth[i]).map(([l]) => l) },
+    llm: { model: llmModel, acc: acc(llm), ms: llmMs, cost: costUsd, misses: LABELS.filter((_, i) => llm[i] !== truth[i]).map(([l]) => l) },
   };
 }
 
@@ -153,11 +149,11 @@ const pctS = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(0)}%` : "
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : 0);
 
 async function main() {
-  if (!process.env.OPENROUTER_API_KEY || !process.env.TYPESAFE_API_KEY) throw new Error("Set OPENROUTER_API_KEY and TYPESAFE_API_KEY in .env.local");
+  if (!MODELS.length) throw new Error("Set GROQ_API_KEY and/or OPENROUTER_API_KEY in .env.local");
   const ex = await extraction();
   const best = Object.entries(ex.rows).sort((a, b) => b[1].flagsExact - a[1].flagsExact || b[1].correct - a[1].correct || a[1].cost - b[1].cost)[0][0];
   const lab = await labelsEval(best);
-  const qual = await qualityEval(ex.rows[best].quality);
+  const qual = process.env.TYPESAFE_API_KEY ? await qualityEval(ex.rows[best].quality) : [];
 
   const md = `# Parakh — Eval results
 
@@ -177,7 +173,7 @@ ${Object.entries(ex.rows).map(([m, r]) => `| ${m} | ${r.correct}/${r.present} ($
 | Approach | Accuracy | Latency | Notes |
 |---|---|---|---|
 | Plain keyword rules (no AI) | ${lab.keyword.acc}/${lab.n} (${pctS(lab.keyword.acc, lab.n)}) | ~0 ms | misses: ${lab.keyword.misses.slice(0, 8).join(", ") || "none"} |
-| Jev (choice) | ${lab.jev.acc}/${lab.n} (${pctS(lab.jev.acc, lab.n)}) | ${lab.jev.ms} ms | ${lab.jev.lowConf} labels below 0.6 confidence; confidence on wrong answers: ${lab.jev.wrongConf.map((c) => c.toFixed(2)).join(", ") || "n/a"}; misses: ${lab.jev.misses.join(", ") || "none"} |
+| Jev (choice) | ${!lab.jevOn ? "not run (no TYPESAFE_API_KEY) | — | —" : `${lab.jev.acc}/${lab.n}`} (${pctS(lab.jev.acc, lab.n)}) | ${lab.jev.ms} ms | ${lab.jev.lowConf} labels below 0.6 confidence; confidence on wrong answers: ${lab.jev.wrongConf.map((c) => c.toFixed(2)).join(", ") || "n/a"}; misses: ${lab.jev.misses.join(", ") || "none"} |
 | ${lab.llm.model} | ${lab.llm.acc}/${lab.n} (${pctS(lab.llm.acc, lab.n)}) | ${lab.llm.ms} ms | cost $${lab.llm.cost ?? "?"}; misses: ${lab.llm.misses.join(", ") || "none"} |
 
 ## 3. "Is this photo clear enough?"

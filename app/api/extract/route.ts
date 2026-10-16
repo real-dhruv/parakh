@@ -1,10 +1,9 @@
-import { readWithOpenRouter, toEstimate } from "@/lib/extract";
+import { readChain, readEstimate, toEstimate, type ReadResult } from "@/lib/extract";
 import { classifyLabels, jevEnabled, photoQuality, type QualityDecision } from "@/lib/jev";
 import type { Estimate } from "@/lib/schema";
 
 export const maxDuration = 60;
 
-const MODEL = process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5";
 const MAX_DATAURL = 6_000_000; // ~4.5 MB image
 
 // ponytail: per-instance, in-memory limiter — best-effort only. The real budget guard is the
@@ -21,7 +20,8 @@ function limited(ip: string) {
 const err = (status: number, message: string) => Response.json({ error: message }, { status });
 
 export async function POST(req: Request) {
-  if (!process.env.OPENROUTER_API_KEY) return err(503, "AI is not connected on this server (demo mode).");
+  const chain = readChain();
+  if (!chain.length) return err(503, "AI is not connected on this server (demo mode).");
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
   if (limited(ip)) return err(429, "Too many checks from this connection. Please try again in an hour.");
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   try {
     const base64 = imageDataUrl?.split(",")[1];
     const [read, jevQuality] = await Promise.all([
-      readWithOpenRouter({ imageDataUrl, text }, MODEL),
+      readFirstWorking({ imageDataUrl, text }, chain),
       base64 && jevEnabled() ? photoQuality(base64).catch(() => null) : Promise.resolve<QualityDecision | null>(null),
     ]);
     const o = read.out;
@@ -79,4 +79,16 @@ function markAllUnsure(e: Estimate) {
     Object.values(o).forEach(walk);
   };
   walk(e);
+}
+
+/** Try each model in order (Groq free tier first); fall back on rate limits or errors. */
+async function readFirstWorking(input: { imageDataUrl?: string; text?: string }, chain: string[]): Promise<ReadResult> {
+  let last: unknown;
+  for (const ref of chain) {
+    try { return await readEstimate(input, ref); } catch (e) {
+      last = e;
+      console.error(`read failed on ${ref}:`, e instanceof Error ? e.message.slice(0, 200) : e);
+    }
+  }
+  throw last;
 }

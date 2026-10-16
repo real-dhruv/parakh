@@ -57,31 +57,74 @@ const jsonSchema = z.toJSONSchema(LlmEstimate);
 
 export type ReadResult = { out: LlmEstimate; ms: number; costUsd: number | null; model: string };
 
-export async function readWithOpenRouter(input: { imageDataUrl?: string; text?: string }, model: string): Promise<ReadResult> {
+// OpenAI-compatible providers. Model refs look like "groq:<model>" or "openrouter:<model>" (bare = openrouter).
+const PROVIDERS = {
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions", key: () => process.env.GROQ_API_KEY, schemaMode: "json_object" as const },
+  openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", key: () => process.env.OPENROUTER_API_KEY, schemaMode: "json_schema" as const },
+};
+type Provider = keyof typeof PROVIDERS;
+
+export function parseModelRef(ref: string): { provider: Provider; model: string } {
+  const i = ref.indexOf(":");
+  const p = i > 0 ? ref.slice(0, i) : "";
+  return p in PROVIDERS ? { provider: p as Provider, model: ref.slice(i + 1) } : { provider: "openrouter", model: ref };
+}
+export const hasKey = (ref: string) => !!PROVIDERS[parseModelRef(ref).provider].key();
+
+/** One JSON-mode chat call to any provider (used by the eval's label comparison). */
+export async function chatJson(ref: string, prompt: string): Promise<{ json: unknown; costUsd: number | null }> {
+  const { provider, model } = parseModelRef(ref);
+  const cfg = PROVIDERS[provider];
+  const res = await fetch(cfg.url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfg.key()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, temperature: 0, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  return { json: JSON.parse(data.choices[0].message.content), costUsd: data.usage?.cost ?? null };
+}
+
+/** Reading order for the app: READ_MODELS if set, else Groq (free tier) first, OpenRouter as fallback. */
+export function readChain(): string[] {
+  const fromEnv = process.env.READ_MODELS?.split(",").map((x) => x.trim()).filter(Boolean);
+  const chain = fromEnv ?? [
+    `groq:${process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"}`,
+    `openrouter:${process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5"}`,
+  ];
+  return chain.filter(hasKey);
+}
+
+export async function readEstimate(input: { imageDataUrl?: string; text?: string }, ref: string): Promise<ReadResult> {
+  const { provider, model } = parseModelRef(ref);
+  const cfg = PROVIDERS[provider];
   const content: unknown[] = [{ type: "text", text: input.text ? `Estimate text:\n${input.text}` : "Read this estimate." }];
   if (input.imageDataUrl) content.push({ type: "image_url", image_url: { url: input.imageDataUrl } });
-  const messages: { role: string; content: unknown }[] = [{ role: "system", content: EXTRACT_PROMPT }, { role: "user", content }];
+  // json_object providers don't take a schema, so the schema goes in the prompt.
+  const system = cfg.schemaMode === "json_object" ? `${EXTRACT_PROMPT}\n\nJSON schema:\n${JSON.stringify(jsonSchema)}` : EXTRACT_PROMPT;
+  const messages: { role: string; content: unknown }[] = [{ role: "system", content: system }, { role: "user", content }];
+  const response_format = cfg.schemaMode === "json_object"
+    ? { type: "json_object" }
+    : { type: "json_schema", json_schema: { name: "estimate", strict: false, schema: jsonSchema } };
 
   const t0 = Date.now();
   let cost = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetch(cfg.url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model, messages, temperature: 0, usage: { include: true },
-        response_format: { type: "json_schema", json_schema: { name: "estimate", strict: false, schema: jsonSchema } },
-      }),
+      headers: { Authorization: `Bearer ${cfg.key()}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages, temperature: 0, response_format, ...(provider === "openrouter" ? { usage: { include: true } } : {}) }),
       signal: AbortSignal.timeout(60_000),
     });
-    if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
-    cost += data.usage?.cost ?? 0;
+    cost += data.usage?.cost ?? 0; // Groq doesn't report cost; free-tier usage is recorded as null
     const text: string = data.choices?.[0]?.message?.content ?? "";
     let parsed: unknown;
     try { parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch { parsed = undefined; }
     const v = LlmEstimate.safeParse(parsed);
-    if (v.success) return { out: v.data, ms: Date.now() - t0, costUsd: cost || null, model };
+    if (v.success) return { out: v.data, ms: Date.now() - t0, costUsd: cost || null, model: ref };
     // One retry, telling the model what was wrong.
     messages.push({ role: "assistant", content: text }, { role: "user", content: `That JSON was invalid: ${v.error?.message.slice(0, 800) ?? "not JSON"}. Return corrected JSON only.` });
   }
