@@ -31,12 +31,12 @@ function Row({ label, f, set, kind = "money" }: { label: string; f: F; set: (fn:
 
   if (editing) {
     return (
-      <div className="py-3 border-b border-line last:border-0">
-        <label className="text-[13px] text-muted">{label}</label>
-        <div className="mt-1.5 flex items-center gap-2">
+      <div className="py-3 border-b border-rule last:border-0">
+        <label className="text-[13px] text-ink-2">{label}</label>
+        <div className="mt-2 flex items-center gap-2">
           {kind === "purity" ? (
             <select autoFocus value={(f.value as string) ?? ""} onChange={(ev) => set((x) => { x.value = ev.target.value || null; x.unsure = false; })}
-              className="flex-1 rounded-lg border border-ink/30 bg-white px-3 py-2.5 text-[16px]">
+              className="flex-1 rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-3 py-3 text-[16px]">
               <option value="">Not stated</option>
               {PURITIES.filter((p) => p !== "unknown").map((p) => <option key={p} value={p}>{p}</option>)}
               <option value="unknown">Written, unclear</option>
@@ -49,42 +49,42 @@ function Row({ label, f, set, kind = "money" }: { label: string; f: F; set: (fn:
                 const v = raw === "" ? null : Number(raw);
                 if (raw === "" || !Number.isNaN(v)) set((x) => { x.value = v; x.unsure = false; });
               }}
-              className="flex-1 min-w-0 rounded-lg border border-ink/30 bg-white px-3 py-2.5 text-[16px] tnum" />
+              className="flex-1 min-w-0 rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-3 py-3 text-[16px] tnum" />
           )}
           {kind === "weight" && (
-            <select value={f.unit ?? ""} aria-label="Unit" onChange={(ev) => set((x) => { x.unit = ev.target.value || null; })} className="rounded-lg border border-ink/30 bg-white px-2 py-2.5 text-[16px]">
+            <select value={f.unit ?? ""} aria-label="Unit" onChange={(ev) => set((x) => { x.unit = ev.target.value || null; })} className="rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-2 py-3 text-[16px]">
               <option value="">unit?</option><option value="g">g</option><option value="ct">ct</option><option value="mg">mg</option>
             </select>
           )}
-          <button onClick={() => setEditing(false)} className="rounded-lg bg-ink text-ivory px-4 py-2.5 text-[15px] font-medium">Done</button>
+          <button onClick={() => setEditing(false)} className="btn btn-primary !min-h-0 py-3">Done</button>
         </div>
-        {f.source && <div className="mt-1.5 font-mono text-[12px] text-muted break-words">slip: “{f.source}”</div>}
+        {f.source && <div className="mt-2 font-mono text-[12px] text-ink-2 break-words">slip: “{f.source}”</div>}
       </div>
     );
   }
 
   if (missing) {
     return (
-      <button onClick={() => setEditing(true)} className="w-full flex items-center py-2.5 border-b border-line last:border-0 text-left text-[14px] text-muted">
+      <button onClick={() => setEditing(true)} className="w-full flex items-center py-3 border-b border-rule last:border-0 text-left text-[14px] text-ink-2">
         <span className="flex-1">{label}</span>
         <span className="italic">not on slip</span>
-        <span className="ml-3 text-gold-ink text-[13px] font-medium">Add</span>
+        <span className="ml-3 text-accent-ink text-[13px] font-medium">Add</span>
       </button>
     );
   }
 
   return (
-    <div className={`border-b border-line last:border-0 ${flagged ? "bg-ask-soft -mx-4 px-4" : ""}`}>
+    <div className={`border-b border-rule last:border-0 ${flagged ? "bg-ask-soft -mx-[var(--space-sm)] px-[var(--space-sm)]" : ""}`}>
       <button onClick={() => setEditing(true)} className="w-full flex items-baseline gap-3 pt-3 pb-1 text-left" aria-label={`Edit ${label}`}>
         <span className="flex-1 text-[15px]">{label}</span>
         <span className="text-[16px] font-medium tnum">{show(f, kind)}</span>
       </button>
-      <div className="flex items-center gap-2 pb-2.5 text-[12px]">
-        <span className={`min-w-0 truncate ${f.source ? "font-mono text-muted" : "text-muted italic"}`}>{f.source ? `slip: “${f.source}”` : "entered by you"}</span>
+      <div className="flex items-center gap-2 pb-3 text-[12px]">
+        <span className={`min-w-0 truncate ${f.source ? "font-mono text-ink-2" : "text-ink-2 italic"}`}>{f.source ? `slip: “${f.source}”` : "entered by you"}</span>
         {flagged && (
-          <span className="ml-auto flex shrink-0 gap-1.5">
-            <button onClick={() => setEditing(true)} className="rounded-full border border-ask px-3 py-1.5 text-ask font-medium">Fix</button>
-            <button onClick={() => set((x) => { x.unsure = false; })} className="rounded-full bg-ask px-3 py-1.5 text-white font-medium">✓ Correct</button>
+          <span className="ml-auto flex shrink-0 gap-2">
+            <button onClick={() => setEditing(true)} className="rounded-[var(--radius-input)] border border-ask px-3 py-2 text-ask font-medium">Fix</button>
+            <button onClick={() => set((x) => { x.unsure = false; })} className="rounded-[var(--radius-input)] bg-ask px-3 py-2 text-paper font-medium">Correct</button>
           </span>
         )}
       </div>
@@ -94,9 +94,9 @@ function Row({ label, f, set, kind = "money" }: { label: string; f: F; set: (fn:
 
 function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: [T, string][]; onChange: (v: T) => void }) {
   return (
-    <label className="flex items-center gap-3 py-2.5 border-b border-line last:border-0">
+    <label className="flex items-center gap-3 py-3 border-b border-rule last:border-0">
       <span className="flex-1 text-[15px]">{label}</span>
-      <select value={value} onChange={(ev) => onChange(ev.target.value as T)} className="rounded-lg border border-line bg-white px-2.5 py-2 text-[15px]">
+      <select value={value} onChange={(ev) => onChange(ev.target.value as T)} className="rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-3 py-2 text-[15px]">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
     </label>
@@ -110,38 +110,37 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
   const fieldOf = (pick: (d: Estimate) => F) => ({ f: pick(e), set: (fn: (f: F) => void) => update((d) => fn(pick(d))) });
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-[34rem] space-y-[var(--space-md)]">
       <div>
-        <p className="text-[13px] font-medium text-gold-ink">Step 2 of 3</p>
-        <h1 className="mt-1 font-display text-[28px] leading-tight font-medium">Check what we read</h1>
-        <p className="mt-1.5 text-[15px] text-muted leading-relaxed">
+        <h1 className="font-display text-[length:var(--text-2xl)] leading-tight font-medium">Check what we read</h1>
+        <p className="mt-2 text-[15px] text-ink-2 leading-relaxed">
           Each value shows the slip line it came from. Tap any value to fix it. Nothing is judged until you confirm.
         </p>
         {meta.demo && (
-          <p className="mt-3 rounded-lg border border-ask/30 bg-ask-soft text-ask text-[13px] p-3">
+          <p className="mt-[var(--space-sm)] border-y border-ask py-[var(--space-xs)] text-ask text-[length:var(--text-sm)]">
             <b>Demo mode: AI not connected.</b> These values come from the sample&apos;s answer key, not a live AI reading.
           </p>
         )}
         {!meta.demo && meta.model && (
-          <p className="mt-3 text-[13px] text-muted">
+          <p className="mt-3 text-[13px] text-ink-2">
             Read by <span className="font-medium text-ink">{meta.model}</span>{meta.ms ? ` in ${(meta.ms / 1000).toFixed(1)} s` : ""}
             {meta.labelSource === "jev" ? " · charge types sorted by Jev" : ""}
           </p>
         )}
-        {meta.unclear && <p className="mt-2 rounded-lg bg-ask-soft text-ask text-[13px] p-3">The photo looks partly unclear, so please check every highlighted value.</p>}
+        {meta.unclear && <p className="mt-[var(--space-xs)] border-y border-ask py-[var(--space-xs)] text-ask text-[length:var(--text-sm)]">The photo looks partly unclear, so please check every highlighted value.</p>}
       </div>
 
       {image && (
-        <details className="rounded-xl border border-line bg-card overflow-hidden" open={!!meta.unclear}>
-          <summary className="cursor-pointer px-4 py-3 text-[15px] font-medium">View the slip side by side</summary>
+        <details className="border-y border-rule" open={!!meta.unclear}>
+          <summary className="cursor-pointer py-[var(--space-xs)] font-medium">View the slip</summary>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="The estimate slip" className="w-full border-t border-line" />
+          <img src={image} alt="The estimate slip" className="w-full max-w-sm border border-rule mb-[var(--space-sm)]" />
         </details>
       )}
 
       {e.items.map((it, i) => (
-        <section key={i} className="rounded-2xl border border-line bg-card px-4 py-1 shadow-sm">
-          <h2 className="pt-3 pb-1 font-display text-[19px]">{it.description.value || `Item ${i + 1}`}</h2>
+        <section key={i} className="border-t border-rule-strong">
+          <h2 className="pt-[var(--space-sm)] pb-[var(--space-3xs)] font-display text-[length:var(--text-lg)]">{it.description.value || `Item ${i + 1}`}</h2>
           <Row label="Purity" kind="purity" {...fieldOf((d) => d.items[i].purity as F)} />
           <Row label="Gross weight" kind="weight" {...fieldOf((d) => d.items[i].grossWt as F)} />
           <Row label="Stone weight" kind="weight" {...fieldOf((d) => d.items[i].stoneWt as F)} />
@@ -154,10 +153,10 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
           {it.charges.map((c, j) => (
             <div key={j} className="pt-1">
               <div className="flex items-center gap-2 pt-2 text-[13px]">
-                <span className="text-muted">Charge</span>
+                <span className="text-ink-2">Charge</span>
                 <select value={c.type} aria-label={`Type of ${c.label}`}
                   onChange={(ev) => update((d) => { d.items[i].charges[j].type = ev.target.value as (typeof CHARGE_TYPES)[number]; })}
-                  className="ml-auto rounded-full border border-gold/40 bg-gold-soft px-2.5 py-1 text-[13px] text-gold-ink font-medium">
+                  className="ml-auto rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-2 py-1 text-[13px] text-ink font-medium">
                   {CHARGE_TYPES.map((t) => <option key={t} value={t}>{CHARGE_NAMES[t]}</option>)}
                 </select>
               </div>
@@ -171,8 +170,8 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
         </section>
       ))}
 
-      <section className="rounded-2xl border border-line bg-card px-4 py-1 shadow-sm">
-        <h2 className="pt-3 pb-1 font-display text-[19px]">Bill totals</h2>
+      <section className="border-t border-rule-strong">
+        <h2 className="pt-[var(--space-sm)] pb-[var(--space-3xs)] font-display text-[length:var(--text-lg)]">Bill totals</h2>
         <Row label="Subtotal before GST" {...fieldOf((d) => d.subtotal as F)} />
         <Row label="Bill discount" {...fieldOf((d) => d.discount as F)} />
         <Row label="GST rate" kind="pct" {...fieldOf((d) => d.gstPct as F)} />
@@ -184,10 +183,10 @@ export default function Confirm({ initial, meta, image, onDone }: { initial: Est
           onChange={(v) => update((d) => { d.saleType = v; })} />
       </section>
 
-      <div className="sticky bottom-0 -mx-4 bg-ivory/95 backdrop-blur px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-line">
+      <div className="sticky bottom-0 -mx-4 bg-paper/95 backdrop-blur px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-rule">
         <button disabled={remaining > 0} onClick={() => onDone(e)}
-          className="w-full rounded-xl bg-ink text-ivory py-4 text-[16px] font-medium disabled:opacity-40 active:scale-[0.99] transition">
-          {remaining > 0 ? `Check ${remaining} highlighted value${remaining > 1 ? "s" : ""} first` : "Looks right. Check my estimate →"}
+          className="btn btn-primary w-full">
+          {remaining > 0 ? `Check ${remaining} highlighted value${remaining > 1 ? "s" : ""} first` : "Looks right. Check it"}
         </button>
       </div>
     </div>

@@ -12,13 +12,13 @@ export default function Check() {
   const update = (next: Session) => { save(next); setS(next); window.scrollTo({ top: 0 }); };
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-10">
-      <header className="flex items-center justify-between py-5">
-        <Link href="/" className="font-display text-2xl font-semibold tracking-tight">Parakh</Link>
-        <Link href="/" className="text-[13px] text-muted underline underline-offset-4">New check</Link>
+    <main className="mx-auto max-w-[68rem] px-[var(--space-sm)] sm:px-[var(--space-lg)] pb-[var(--space-xl)]">
+      <header className="flex items-baseline justify-between py-[var(--space-md)]">
+        <Link href="/" className="font-display text-[length:var(--text-xl)] font-semibold tracking-tight">Parakh</Link>
+        <Link href="/" className="nowrap py-2 text-[length:var(--text-sm)] text-ink-2 underline underline-offset-4">New check</Link>
       </header>
       {s === undefined ? null : s === null ? (
-        <p className="py-10 text-center text-muted">No estimate yet. <Link href="/" className="underline">Start a check</Link>.</p>
+        <p className="py-10 text-center text-ink-2">No estimate yet. <Link href="/" className="underline">Start a check</Link>.</p>
       ) : s.step === "confirm" ? (
         <Confirm initial={s.estimate} meta={s.meta} image={getImage() ?? (s.meta.sampleId ? `/samples/${s.meta.sampleId}.png` : null)}
           onDone={(e) => update({ ...s, estimate: confirmAll(e), step: "report" })} />

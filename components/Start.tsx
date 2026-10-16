@@ -5,9 +5,11 @@ import { save, setImage, toDataUrl, unconfirmed, type Meta } from "@/lib/store";
 import type { Estimate } from "@/lib/schema";
 import type { Sample } from "@/samples/data";
 
-type SampleCard = Pick<Sample, "id" | "title" | "estimate">;
+export type SampleCard = Pick<Sample, "id" | "title" | "estimate"> & { finds: string };
+export type Note = { title: string; amount?: string; tier: "mismatch" | "ask" };
 
-export default function Start({ samples }: { samples: SampleCard[] }) {
+/** The whole interactive home page (Split Studio). Notes are computed server-side by the real rules. */
+export default function Start({ samples, featured, notes }: { samples: SampleCard[]; featured: SampleCard; notes: Note[] }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -54,78 +56,122 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
   }
 
   return (
-    <div className="space-y-8">
+    <>
       {busy && <Reading image={preview} />}
-      <section className="rounded-2xl bg-card border border-line p-5 shadow-sm">
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={!!busy}
-          className="w-full rounded-xl bg-ink text-ivory py-4 text-[17px] font-medium active:scale-[0.99] transition disabled:opacity-60"
-        >
-          {busy === "upload" ? "Reading your estimate…" : "📷  Snap or upload your estimate"}
-        </button>
-        <button
-          onClick={() => onSample(samples[0])}
-          disabled={!!busy}
-          className="mt-3 w-full rounded-xl border border-gold/50 bg-gold-soft py-3.5 text-[15px] font-medium text-gold-ink active:scale-[0.99] transition disabled:opacity-60"
-        >
-          No estimate handy? Try a sample (15 sec)
-        </button>
-        <button onClick={() => setPasting((p) => !p)} disabled={!!busy} className="mt-1 w-full py-2.5 text-sm text-muted underline underline-offset-4">
-          {pasting ? "Hide" : "Or paste the estimate text"}
-        </button>
-        {pasting && (
-          <div className="mt-3 space-y-2">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={6}
-              placeholder={"e.g.\nGross wt 6.400 g  Stone 0.600 g\nRate 9450/g  Gold 60,480\nMaking @950/g 6,080 …"}
-              className="w-full rounded-xl border border-line bg-ivory p-3 font-mono text-sm"
-            />
-            <button disabled={!!busy || !text.trim()} onClick={() => run({ text })} className="w-full rounded-xl border border-ink py-3 font-medium disabled:opacity-40">
-              {busy === "upload" ? "Reading…" : "Check this text"}
-            </button>
-          </div>
-        )}
-        {error && <p role="alert" className="mt-3 rounded-lg bg-mismatch-soft text-mismatch text-sm p-3">{error}</p>}
-        <details className="mt-4 text-[13px] text-muted">
-          <summary className="cursor-pointer py-1">🔒 What happens to my photo?</summary>
-          <p className="mt-2 leading-relaxed">
-            To read your estimate, your image is sent through OpenRouter to a third-party AI model provider; their data policies apply.
-            Parakh&apos;s server doesn&apos;t save the image or the results. The extracted estimate (not the image) is kept in this tab&apos;s session
-            storage so a refresh doesn&apos;t lose it; it&apos;s cleared when the tab is closed, though some browsers can restore it if you reopen a
-            closed tab. Cover your name, phone and address before uploading.
+
+      {/* Split 1 — statement + actions | proof: a real slip with what Parakh found on it */}
+      <section className="grid gap-[var(--space-xl)] md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:items-start">
+        <div className="min-w-0 pt-[var(--space-xs)]">
+          <h1 className="font-display font-medium text-[length:var(--text-display)] leading-[1.04] tracking-[-0.015em]">
+            Check the jewellery bill <span className="text-accent-ink">before you pay.</span>
+          </h1>
+          <p className="mt-[var(--space-md)] max-w-[34rem] text-[length:var(--text-md)] leading-relaxed text-ink-2">
+            Photograph the estimate from the counter. Parakh shows what you&apos;re really paying for gold, making and stones,
+            which lines don&apos;t add up, and the exact question to ask the jeweller.
           </p>
-        </details>
+
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          <div className="mt-[var(--space-lg)] flex flex-col gap-[var(--space-xs)] sm:flex-row">
+            <button onClick={() => fileRef.current?.click()} disabled={!!busy} className="btn btn-primary">Check my estimate</button>
+            <button onClick={() => onSample(featured)} disabled={!!busy} className="btn btn-secondary">Try a sample</button>
+          </div>
+          <button onClick={() => setPasting((p) => !p)} disabled={!!busy} className="mt-[var(--space-xs)] py-2 text-[length:var(--text-sm)] text-ink-2 underline underline-offset-4">
+            {pasting ? "Hide the text box" : "Or paste the estimate as text"}
+          </button>
+          {pasting && (
+            <div className="mt-[var(--space-xs)] space-y-[var(--space-xs)]">
+              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} aria-label="Estimate text"
+                placeholder={"Gross wt 6.400 g  Stone 0.600 g\nRate 9450/g  Gold 60,480\nMaking @950/g 6,080 …"}
+                className="w-full rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 p-[var(--space-xs)] font-mono text-[length:var(--text-sm)]" />
+              <button disabled={!!busy || !text.trim()} onClick={() => run({ text })} className="btn btn-secondary w-full">Check this text</button>
+            </div>
+          )}
+          {error && <p role="alert" className="mt-[var(--space-sm)] border-t border-mismatch pt-[var(--space-xs)] text-[length:var(--text-sm)] text-mismatch">{error}</p>}
+          <details className="mt-[var(--space-2xs)] max-w-[34rem]">
+            <summary className="cursor-pointer py-2 text-[length:var(--text-sm)] text-ink-2">What happens to my photo?</summary>
+          <p className="mt-[var(--space-2xs)] text-[length:var(--text-xs)] leading-relaxed text-ink-2">
+            Your photo is sent through OpenRouter to a third-party AI model provider to be read; their data policies apply. Parakh&apos;s
+            server keeps no copy. The extracted estimate (not the photo) stays in this tab&apos;s session storage until you close it; some
+            browsers can restore it if you reopen a closed tab. Cover your name, phone and address before uploading.
+          </p>
+          </details>
+        </div>
+
+        <figure className="min-w-0">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-[var(--space-sm)] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)]">
+            <button onClick={() => onSample(featured)} disabled={!!busy} className="group block overflow-hidden rounded-[var(--radius-figure)] border border-rule bg-paper-2" aria-label="Check this sample estimate">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/samples/${featured.id}.png`} alt="A synthetic jeweller's estimate for jhumka earrings" className="w-full motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-[1.01]" />
+            </button>
+            <figcaption className="min-w-0">
+              <p className="font-display text-[length:var(--text-lg)]">What Parakh found on this slip</p>
+              <ol className="ledger mt-[var(--space-2xs)]">
+                {notes.map((n, i) => (
+                  <li key={i} className="flex items-baseline gap-[var(--space-xs)] py-[var(--space-xs)]">
+                    <span className={`mt-2 h-2 w-2 shrink-0 ${n.tier === "mismatch" ? "bg-mismatch" : "bg-ask"}`} aria-hidden />
+                    <span className="flex-1 text-[length:var(--text-sm)] leading-snug">{n.title}</span>
+                    {n.amount && <span className="font-display tnum text-[length:var(--text-base)] nowrap">{n.amount}</span>}
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-[var(--space-2xs)] text-[length:var(--text-xs)] text-ink-2">Synthetic sample · fictional shop · illustrative gold rate</p>
+            </figcaption>
+          </div>
+        </figure>
       </section>
 
-      <section>
-        <h2 className="font-display text-[19px] mb-3">More sample estimates</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {samples.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => onSample(s)}
-              disabled={!!busy}
-              className="group text-left rounded-xl border border-line bg-card overflow-hidden hover:border-gold transition disabled:opacity-60"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/samples/${s.id}.png`} alt="" className="h-28 w-full object-cover object-top" />
-              <div className="p-2.5">
-                <div className="text-[13px] font-medium leading-snug">{busy === s.id ? "Reading with AI…" : s.title}</div>
-                <div className="mt-1 text-[12px] text-gold-ink">Synthetic sample</div>
-              </div>
-            </button>
-          ))}
+      {/* Split 2 — how it works, proof on the opposite side */}
+      <section id="how" className="mt-[var(--space-3xl)] grid gap-[var(--space-lg)] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="min-w-0 md:order-2">
+          <h2 className="font-display font-medium text-[length:var(--text-2xl)] leading-tight">AI reads. You confirm. Rules decide.</h2>
+          <p className="mt-[var(--space-sm)] max-w-[34rem] leading-relaxed text-ink-2">
+            A vision model transcribes the slip and records the exact line each number came from. You check what it read. Then ordinary,
+            tested rules do every calculation. The AI never writes a number in your report, and only arithmetic on the slip&apos;s own
+            confirmed figures is ever called wrong. Everything else is a question to ask.
+          </p>
         </div>
+        <dl className="ledger min-w-0 border-y border-rule md:order-1">
+          {[
+            ["Read", "slip: “Gross Wt 6.400 g”", "6.4 g"],
+            ["Confirm", "you tick each unclear value", "ticked"],
+            ["Check", "₹60,480 ÷ ₹9,450/g", "6.4 g billed"],
+            ["Ask", "“Which weight was the gold rate applied to?”", ""],
+          ].map(([k, a, b]) => (
+            <div key={k} className="grid grid-cols-[5.5rem_minmax(0,1fr)_auto] items-baseline gap-[var(--space-xs)] py-[var(--space-xs)]">
+              <dt className="font-display text-[length:var(--text-md)]">{k}</dt>
+              <dd className="min-w-0 font-mono text-[length:var(--text-xs)] text-ink-2 break-words">{a}</dd>
+              <dd className="font-display tnum nowrap">{b}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
-    </div>
+
+      {/* Split 3 — more samples */}
+      <section className="mt-[var(--space-3xl)]">
+        <h2 className="font-display font-medium text-[length:var(--text-2xl)] leading-tight">More sample estimates</h2>
+        <p className="mt-[var(--space-2xs)] text-ink-2">All synthetic. Each one exercises a different check.</p>
+        <ul className="ledger mt-[var(--space-md)] border-y border-rule">
+          {samples.map((s) => (
+            <li key={s.id}>
+              <button onClick={() => onSample(s)} disabled={!!busy}
+                className="group grid w-full grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-[var(--space-sm)] py-[var(--space-xs)] text-left disabled:opacity-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/samples/${s.id}.png`} alt="" className="h-14 w-14 rounded-[var(--radius-input)] border border-rule object-cover object-top" />
+                <span className="min-w-0">
+                  <span className="block font-medium leading-snug">{s.title}</span>
+                  <span className="block text-[length:var(--text-sm)] text-ink-2 leading-snug">{s.finds}</span>
+                </span>
+                <span className="text-accent-ink text-[length:var(--text-sm)] font-medium nowrap group-hover:underline">{busy === s.id ? "Reading…" : "Check →"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }
 
-/** Full-screen state while the AI reads the slip (typically 5–15 s). */
+/** Full-screen state while the AI reads the slip. */
 function Reading({ image }: { image: string | null }) {
   const [secs, setSecs] = useState(0);
   useEffect(() => {
@@ -133,19 +179,19 @@ function Reading({ image }: { image: string | null }) {
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ivory/97 backdrop-blur px-6" role="status" aria-live="polite">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-paper px-[var(--space-md)]" role="status" aria-live="polite">
       {image && (
-        <div className="relative w-52 max-h-72 overflow-hidden rounded-lg border border-line bg-white shadow-lg">
+        <div className="relative w-52 max-h-72 overflow-hidden rounded-[var(--radius-figure)] border border-rule bg-paper-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="" className="w-full" />
           <div className="scanline" />
         </div>
       )}
-      <p className="mt-6 font-display text-[22px]">Reading your estimate…</p>
-      <p className="mt-2 max-w-xs text-center text-[14px] leading-relaxed text-muted">
-        AI is transcribing every line and noting where each number came from. Nothing is judged yet.
+      <p className="mt-[var(--space-md)] font-display text-[length:var(--text-xl)]">Reading your estimate…</p>
+      <p className="mt-[var(--space-2xs)] max-w-xs text-center leading-relaxed text-ink-2">
+        Transcribing every line and noting where each number came from. Nothing is judged yet.
       </p>
-      <p className="mt-3 text-[13px] text-muted tnum">{secs}s · usually 5–15 s</p>
+      <p className="mt-[var(--space-xs)] text-[length:var(--text-sm)] text-ink-2 tnum">{secs} s</p>
     </div>
   );
 }

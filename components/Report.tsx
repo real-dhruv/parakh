@@ -22,84 +22,76 @@ function describe(e: Estimate, path: string) {
   return { name, shown, source: f?.source ?? null };
 }
 
+/** Every figure traced back to the slip line it was read from. */
 function Trace({ e, refs, formula }: { e: Estimate; refs: string[]; formula?: string }) {
   return (
-    <div className="mt-3 rounded-lg bg-ivory border border-line p-3 text-[13px] space-y-1.5">
-      {formula && <div className="font-mono text-[12px] text-ink">{formula}</div>}
-      {refs.map((r) => {
-        const d = describe(e, r);
-        if (d.shown === "—") return null; // not on the slip and not entered: nothing to trace
-        return (
-          <div key={r} className="flex flex-wrap gap-x-2">
-            <span className="text-muted">{d.name}:</span>
-            <span className="tnum font-medium">{d.shown}</span>
-            <span className="font-mono text-[12px] text-muted">{d.source ? `← slip: “${d.source}”` : "← entered by you"}</span>
-          </div>
-        );
-      })}
+    <div className="mt-[var(--space-xs)] border-l border-rule-strong pl-[var(--space-sm)] text-[length:var(--text-sm)]">
+      {formula && <p className="font-mono text-[length:var(--text-xs)] text-ink">{formula}</p>}
+      <dl className="mt-[var(--space-3xs)] space-y-[var(--space-3xs)]">
+        {refs.map((r) => {
+          const d = describe(e, r);
+          if (d.shown === "—") return null; // not on the slip and not entered: nothing to trace
+          return (
+            <div key={r} className="flex flex-wrap gap-x-[var(--space-2xs)]">
+              <dt className="text-ink-2">{d.name}</dt>
+              <dd className="tnum font-medium">{d.shown}</dd>
+              <dd className="font-mono text-[length:var(--text-xs)] text-ink-2 break-words">{d.source ? `slip: “${d.source}”` : "entered by you"}</dd>
+            </div>
+          );
+        })}
+      </dl>
     </div>
   );
 }
 
-const TIER: Record<Tier, { label: string; badge: string; card: string }> = {
-  mismatch: { label: "Doesn't add up", badge: "bg-mismatch text-white", card: "border-mismatch/30 bg-mismatch-soft" },
-  ask: { label: "Ask the jeweller", badge: "bg-ask text-white", card: "border-ask/25 bg-ask-soft" },
-  tip: { label: "Good to know", badge: "bg-tip text-white", card: "border-tip/20 bg-tip-soft" },
+const TIER: Record<Tier, { word: string; mark: string; text: string }> = {
+  mismatch: { word: "Doesn't add up", mark: "bg-mismatch", text: "text-mismatch" },
+  ask: { word: "Ask the jeweller", mark: "bg-ask", text: "text-ask" },
+  tip: { word: "Good to know", mark: "bg-tip", text: "text-tip" },
 };
 
-function PointCard({ p, e }: { p: ReviewPoint; e: Estimate }) {
-  const [open, setOpen] = useState(false);
+function Finding({ p, n, e }: { p: ReviewPoint; n: number; e: Estimate }) {
   const t = TIER[p.tier];
   return (
-    <article className={`rounded-xl border p-4 ${t.card}`}>
-      <div className="flex items-start gap-3">
-        <h3 className="flex-1 font-medium leading-snug">{p.title}</h3>
-        {p.atStake !== undefined && Math.abs(p.atStake) >= 1 && (
-          <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-0.5 text-[13px] font-semibold tnum">{inr(Math.abs(p.atStake))}</span>
+    <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-[var(--space-2xs)] py-[var(--space-md)]">
+      <span className="font-display text-[length:var(--text-xl)] leading-none text-ink-2 tnum">{n}</span>
+      <div className="min-w-0">
+        <p className={`flex items-center gap-[var(--space-2xs)] text-[length:var(--text-xs)] font-semibold ${t.text}`}>
+          <span className={`h-2 w-2 ${t.mark}`} aria-hidden />{t.word}
+        </p>
+        <div className="mt-[var(--space-3xs)] flex items-baseline gap-[var(--space-sm)]">
+          <h3 className="flex-1 font-display text-[length:var(--text-lg)] leading-snug">{p.title}</h3>
+          {p.atStake !== undefined && Math.abs(p.atStake) >= 1 && (
+            <span className="font-display text-[length:var(--text-lg)] tnum nowrap">{inr(Math.abs(p.atStake))}</span>
+          )}
+        </div>
+        <p className="mt-[var(--space-2xs)] leading-relaxed">{p.detail}</p>
+        {p.question && (
+          <p className="mt-[var(--space-xs)] leading-relaxed">
+            <span className="text-ink-2">Ask: </span><em>“{p.question}”</em>
+          </p>
+        )}
+        {p.refs.length > 0 && (
+          <details className="mt-[var(--space-2xs)]">
+            <summary className="cursor-pointer py-2 text-[length:var(--text-sm)] text-ink-2 underline underline-offset-4">Where these numbers come from</summary>
+            <Trace e={e} refs={p.refs} />
+          </details>
         )}
       </div>
-      <p className="mt-1.5 text-[14px] leading-relaxed">{p.detail}</p>
-      {p.question && (
-        <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-[14px]">
-          <span className="text-muted">Ask: </span>“{p.question}”
-        </p>
-      )}
-      {p.refs.length > 0 && (
-        <button onClick={() => setOpen((o) => !o)} className="mt-1 -mb-1 py-2 text-[13px] text-muted underline underline-offset-4">
-          {open ? "Hide source" : "Where do these numbers come from?"}
-        </button>
-      )}
-      {open && <Trace e={e} refs={p.refs} />}
-    </article>
+    </li>
   );
 }
 
-function Key({ label, value, sub, children }: { label: string; value: string; sub?: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <button onClick={() => setOpen((o) => !o)} className="text-left rounded-xl border border-line bg-card p-4 w-full">
-      <div className="text-[12px] uppercase tracking-wider text-muted">{label}</div>
-      <div className="mt-1 font-display text-[24px] leading-tight tnum">{value}</div>
-      {sub && <div className="mt-0.5 text-[13px] text-muted">{sub}</div>}
-      <div className="mt-1 text-[12px] text-gold-ink font-medium">{open ? "Hide calculation" : "Tap to see the calculation"}</div>
-      {open && children}
-    </button>
-  );
-}
+const SEGS = [
+  ["metal", "Gold", "bg-[var(--color-seg-metal)]"],
+  ["making", "Making", "bg-[var(--color-seg-making)]"],
+  ["wastage", "Wastage / VA", "bg-[var(--color-seg-wastage)]"],
+  ["stones", "Stones", "bg-[var(--color-seg-stones)]"],
+  ["other", "Other charges", "bg-[var(--color-seg-other)]"],
+  ["gst", "GST", "bg-[var(--color-seg-gst)]"],
+] as const;
 
-const COLORS = { metal: "#a8741a", making: "#d9a441", wastage: "#e8c785", stones: "#5b6b8c", other: "#b6aea3", gst: "#3b3632" };
-const NAMES = { metal: "Gold", making: "Making", wastage: "Wastage / VA", stones: "Stones", other: "Other", gst: "GST" };
-
-function Points({ tiers, r, e, counts }: { tiers: Tier[]; r: ReturnType<typeof review>; e: Estimate; counts: Record<Tier, number> }) {
-  return tiers.map((tier) =>
-    counts[tier] ? (
-      <section key={tier} className="space-y-3">
-        <h2 className="flex items-center gap-2 font-medium"><span className={`rounded-full px-2.5 py-0.5 text-[12px] ${TIER[tier].badge}`}>{counts[tier]}</span>{TIER[tier].label}</h2>
-        {r.points.filter((p) => p.tier === tier).map((p, i) => <PointCard key={i} p={p} e={e} />)}
-      </section>
-    ) : null,
-  );
-}
+const H2 = "font-display font-medium text-[length:var(--text-xl)] leading-tight";
 
 export default function Report({ estimate: e, meta, onEdit }: { estimate: Estimate; meta: Meta; onEdit: () => void }) {
   const [boardRate, setBoardRate] = useState("");
@@ -115,25 +107,32 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
   const c = r.calc;
   const counts = { mismatch: 0, ask: 0, tip: 0 } as Record<Tier, number>;
   r.points.forEach((p) => counts[p.tier]++);
-  // Headline "hidden number": effective gold price vs the rate written on the slip (single-item bills).
+  const main = r.points.filter((p) => p.tier !== "tip");
+  const tips = r.points.filter((p) => p.tier === "tip");
+  const stake = main.reduce((a, p) => a + Math.max(0, p.atStake ?? 0), 0);
+  // The "hidden number": effective gold price vs the rate written on the slip (single-item bills).
   const hero = e.items.length === 1 && c.items[0].impliedRate !== null && e.items[0].goldRate.value
     && c.items[0].impliedRate / e.items[0].goldRate.value > 1.005 ? { implied: c.items[0].impliedRate, written: e.items[0].goldRate.value } : null;
-  const stake = r.points.filter((p) => p.tier !== "tip").reduce((a, p) => a + Math.max(0, p.atStake ?? 0), 0);
 
   const total = c.total ?? 0;
-  const segs = (Object.keys(COLORS) as (keyof typeof COLORS)[])
-    .map((k) => ({ k, v: (k === "gst" ? c.components.gst : (c.components as Record<string, number | null>)[k]) ?? 0 }))
-    .filter((s) => s.v > 0);
+  const segs = SEGS.map(([k, name, cls]) => ({ k, name, cls, v: (c.components as Record<string, number | null>)[k] ?? 0 })).filter((s) => s.v > 0);
   const segSum = segs.reduce((a, s) => a + s.v, 0) || 1;
+  const shop = e.shop.value ?? "This jeweller";
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+  const headline = stake >= 1
+    ? <><span className="text-accent-ink tnum">{inr(stake)}</span> worth asking about before you pay.</>
+    : counts.mismatch ? <>{plural(counts.mismatch, "line on this slip doesn't", "lines on this slip don't")} add up.</>
+    : counts.ask ? <>{plural(counts.ask, "thing", "things")} to ask before you pay.</>
+    : <>Nothing on this slip failed our checks.</>;
 
   async function share() {
-    const lines = [
-      `Parakh check — ${e.shop.value ?? "jewellery estimate"} (${inr(total)})`,
-      ...r.points.filter((p) => p.tier !== "tip").map((p) => `• ${p.title}${p.question ? ` — ask: "${p.question}"` : ""}`),
-      r.points.some((p) => p.tier !== "tip") ? "" : "• Nothing failed the checks.",
+    const text = [
+      `Parakh check: ${shop} estimate, ${inr(total)}`,
+      ...main.map((p) => `• ${p.title}${p.question ? `. Ask: "${p.question}"` : ""}`),
+      main.length ? "" : "• Nothing failed the checks.",
       "Checked with Parakh (prototype).",
-    ].filter(Boolean);
-    const text = lines.join("\n");
+    ].filter(Boolean).join("\n");
     try {
       if (navigator.share) await navigator.share({ text });
       else { await navigator.clipboard.writeText(text); setCopied(true); }
@@ -141,138 +140,159 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
   }
 
   return (
-    <div className="space-y-6">
+    <article className="max-w-[34rem]">
       {meta.demo && (
-        <p className="rounded-lg border border-ask/30 bg-ask-soft p-3 text-[13px] text-ask">
-          <b>Demo mode — AI not connected.</b> This sample&apos;s answer key was loaded instead of a live AI reading. All checks below are the real engine.
+        <p className="mb-[var(--space-md)] border-y border-ask py-[var(--space-xs)] text-[length:var(--text-sm)] text-ask">
+          <b>Demo mode: AI not connected.</b> This sample&apos;s answer key was loaded instead of a live AI reading. Every check below is the real engine.
         </p>
       )}
 
-      <section className="rounded-2xl bg-ink text-ivory p-5">
-        <div className="text-[13px] opacity-70">{e.shop.value ?? "Your estimate"}</div>
-        <div className="mt-1 font-display text-[38px] leading-none tnum">{c.total !== null ? inr(c.total) : "Total not read"}</div>
-        {hero && (
-          <div className="mt-3 text-[14px] opacity-90">
-            You effectively pay <span className="font-semibold text-[#f3c77a] tnum">{inr(hero.implied)}/g</span> for gold; the slip says <span className="tnum">{inr(hero.written)}/g</span>
-          </div>
-        )}
-        {stake >= 1 && (
-          <div className="mt-3 text-[15px]"><span className="font-semibold text-[#f3c77a] tnum">{inr(stake)}</span> worth asking about before you pay</div>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2 text-[13px]">
-          {counts.mismatch > 0 && <span className="rounded-full bg-mismatch px-3 py-1">{counts.mismatch} doesn&apos;t add up</span>}
-          {counts.ask > 0 && <span className="rounded-full bg-ask px-3 py-1">{counts.ask} to ask about</span>}
-          {counts.mismatch + counts.ask === 0 && <span className="rounded-full bg-[#2f6b4f] px-3 py-1">Nothing failed our checks</span>}
-          {counts.tip > 0 && <span className="rounded-full bg-white/15 px-3 py-1">{counts.tip} good to know</span>}
-        </div>
-        {!meta.demo && meta.model && (
-          <div className="mt-4 text-[12px] opacity-60">
-            Read by {meta.model}{meta.ms ? ` in ${(meta.ms / 1000).toFixed(1)} s` : ""}{meta.labelSource === "jev" ? " · charges sorted by Jev" : ""} · all maths by Parakh&apos;s rules
-          </div>
-        )}
-      </section>
+      <p className="text-[length:var(--text-sm)] text-ink-2">{shop} · estimate total <span className="tnum">{c.total !== null ? inr(c.total) : "not read"}</span></p>
+      <h1 className="mt-[var(--space-2xs)] font-display font-medium text-[length:var(--text-2xl)] sm:text-[length:var(--text-display)] leading-[1.08] tracking-[-0.01em]">{headline}</h1>
+      <p className="mt-[var(--space-sm)] text-[length:var(--text-md)] leading-relaxed">
+        {hero && <>You effectively pay <b className="tnum">{inr(hero.implied)}</b> per gram of gold; the slip states <span className="tnum">{inr(hero.written)}</span>. </>}
+        {counts.mismatch > 0 && <>{plural(counts.mismatch, "line doesn't", "lines don't")} add up on the slip&apos;s own figures. </>}
+        {counts.ask > 0 && <>{plural(counts.ask, "point is", "points are")} worth asking the jeweller about; many have good answers. </>}
+        {main.length === 0 && <>The slip&apos;s arithmetic reconciles and none of the billing patterns we check for appear.</>}
+      </p>
+      {!meta.demo && meta.model && (
+        <p className="mt-[var(--space-xs)] text-[length:var(--text-xs)] text-ink-2">
+          Read by {meta.model}{meta.ms ? ` in ${(meta.ms / 1000).toFixed(1)} s` : ""}{meta.labelSource === "jev" ? " · charges sorted by Jev" : ""} · every figure computed by Parakh&apos;s rules
+        </p>
+      )}
 
-      <Points tiers={["mismatch", "ask"]} r={r} e={e} counts={counts} />
+      {main.length > 0 && (
+        <ol className="ledger mt-[var(--space-lg)] border-y border-rule">
+          {main.map((p, i) => <Finding key={i} p={p} n={i + 1} e={e} />)}
+        </ol>
+      )}
 
       {total > 0 && segs.length > 0 && (
-        <section>
-          <h2 className="mb-2 font-medium">What you&apos;re paying for</h2>
-          <div className="flex h-4 w-full overflow-hidden rounded-full" role="img" aria-label="Breakdown of the total">
-            {segs.map((s) => <div key={s.k} style={{ width: `${(s.v / segSum) * 100}%`, background: COLORS[s.k] }} />)}
+        <section className="mt-[var(--space-2xl)]">
+          <h2 className={H2}>What you&apos;re paying for</h2>
+          <div className="mt-[var(--space-sm)] flex h-2.5 w-full overflow-hidden" role="img" aria-label="Breakdown of the total">
+            {segs.map((s) => <div key={s.k} className={s.cls} style={{ width: `${(s.v / segSum) * 100}%` }} />)}
           </div>
-          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[14px]">
+          <dl className="ledger mt-[var(--space-sm)]">
             {segs.map((s) => (
-              <li key={s.k} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS[s.k] }} />
-                <span className="flex-1 text-muted">{NAMES[s.k]}</span>
-                <span className="tnum">{inr(s.v)}</span>
-              </li>
+              <div key={s.k} className="grid grid-cols-[0.75rem_minmax(0,1fr)_auto_3rem] items-baseline gap-[var(--space-2xs)] py-[var(--space-2xs)]">
+                <span className={`h-2 w-2 ${s.cls}`} aria-hidden />
+                <dt>{s.name}</dt>
+                <dd className="tnum">{inr(s.v)}</dd>
+                <dd className="tnum text-right text-[length:var(--text-sm)] text-ink-2">{Math.round((s.v / total) * 100)}%</dd>
+              </div>
             ))}
             {(c.components.discount ?? 0) > 0 && (
-              <li className="flex items-center gap-2"><span className="h-2.5 w-2.5" /><span className="flex-1 text-muted">Discount</span><span className="tnum">−{inr(c.components.discount!)}</span></li>
+              <div className="grid grid-cols-[0.75rem_minmax(0,1fr)_auto_3rem] items-baseline gap-[var(--space-2xs)] py-[var(--space-2xs)]">
+                <span /><dt>Discount</dt><dd className="tnum">−{inr(c.components.discount!)}</dd><span />
+              </div>
             )}
-          </ul>
+            <div className="grid grid-cols-[0.75rem_minmax(0,1fr)_auto_3rem] items-baseline gap-[var(--space-2xs)] border-t-[3px] border-double !border-rule-strong py-[var(--space-2xs)] font-semibold">
+              <span /><dt>Total on slip</dt><dd className="tnum">{inr(total)}</dd><span />
+            </div>
+          </dl>
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-3 [&>*:only-child]:col-span-2 [&>*:last-child:nth-child(odd)]:col-span-2">
-        {e.items.map((it, i) => {
-          const ic = c.items[i];
-          if (ic.impliedRate === null) return null;
-          const written = it.goldRate.value;
-          const differs = written !== null && Math.abs(ic.impliedRate - written) / written > 0.005;
-          return (
-            <Key
-              key={i}
-              label={`Gold you pay for${e.items.length > 1 ? ` · ${it.description.value ?? `item ${i + 1}`}` : ""}`}
-              value={`${inr(ic.impliedRate)}/g`}
-              sub={differs ? `Slip says ${inr(written!)}/g — the difference comes from which weight was charged` : `per gram of net metal${it.purity.value && it.purity.value !== "unknown" ? `, ${it.purity.value}` : ""}`}
-            >
-              <Trace e={e} refs={[`items.${i}.goldValue`, `items.${i}.netWt`, ...(ic.netWtFrom === "slip" ? [] : [`items.${i}.grossWt`, `items.${i}.stoneWt`])]}
-                formula={`${inr(ic.goldValue!)} ÷ ${+ic.netWtG!.toFixed(3)} g net = ${inr(ic.impliedRate)}/g`} />
-            </Key>
-          );
-        })}
-        {c.makingPct !== null && (
-          <Key label="Making + wastage" value={`${+(c.makingPct * 100).toFixed(1)}%`} sub="of the gold value">
-            <Trace e={e} refs={e.items.flatMap((it, i) => it.charges.map((ch, j) => (ch.type === "making" || ch.type === "wastage" ? `items.${i}.charges.${j}.amount` : "")).filter(Boolean))}
-              formula={`(${inr(c.components.making!)} + ${inr(c.components.wastage!)}) ÷ ${inr(c.components.metal!)} gold`} />
-          </Key>
-        )}
-        {c.components.metal !== null && total > 0 && (
-          <Key label="Gold share of your bill" value={`${Math.round((c.components.metal / total) * 100)}%`} sub="the rest is making, stones, other charges and GST">
-            <Trace e={e} refs={["total", ...e.items.map((_, i) => `items.${i}.goldValue`)]} formula={`${inr(c.components.metal)} gold ÷ ${inr(total)} total`} />
-          </Key>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-line bg-card p-4">
-        <h2 className="font-medium">Compare with the shop&apos;s board rate <span className="text-muted font-normal">(optional)</span></h2>
-        <p className="mt-1 text-[13px] text-muted">Type the rate shown on the shop&apos;s display today. Parakh never assumes a gold rate.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input inputMode="decimal" value={boardRate} onChange={(ev) => setBoardRate(ev.target.value)} placeholder="₹ rate" aria-label="Board rate"
-            className="w-32 rounded-md border border-line bg-white px-2 py-2 tnum" />
-          <select value={per10 ? "10" : "1"} onChange={(ev) => setPer10(ev.target.value === "10")} className="rounded-md border border-line bg-white px-2 py-2">
+      <section className="mt-[var(--space-2xl)]">
+        <h2 className={H2}>The numbers behind it</h2>
+        <div className="ledger mt-[var(--space-xs)] border-y border-rule">
+          {e.items.map((it, i) => {
+            const ic = c.items[i];
+            if (ic.impliedRate === null) return null;
+            return (
+              <Measure key={i} label={`Gold price you effectively pay${e.items.length > 1 ? `, ${it.description.value ?? `item ${i + 1}`}` : ""}`} value={`${inr(ic.impliedRate)}/g`}>
+                <Trace e={e} refs={[`items.${i}.goldValue`, `items.${i}.netWt`, ...(ic.netWtFrom === "slip" ? [] : [`items.${i}.grossWt`, `items.${i}.stoneWt`])]}
+                  formula={`${inr(ic.goldValue!)} ÷ ${+ic.netWtG!.toFixed(3)} g net metal = ${inr(ic.impliedRate)}/g`} />
+              </Measure>
+            );
+          })}
+          {c.makingPct !== null && (
+            <Measure label="Making and wastage, as a share of gold value" value={`${+(c.makingPct * 100).toFixed(1)}%`}>
+              <Trace e={e} refs={e.items.flatMap((it, i) => it.charges.map((ch, j) => (ch.type === "making" || ch.type === "wastage" ? `items.${i}.charges.${j}.amount` : "")).filter(Boolean))}
+                formula={`(${inr(c.components.making!)} + ${inr(c.components.wastage!)}) ÷ ${inr(c.components.metal!)} gold`} />
+            </Measure>
+          )}
+          {c.components.metal !== null && total > 0 && (
+            <Measure label="Gold as a share of the whole bill" value={`${Math.round((c.components.metal / total) * 100)}%`}>
+              <Trace e={e} refs={["total", ...e.items.map((_, i) => `items.${i}.goldValue`)]} formula={`${inr(c.components.metal)} gold ÷ ${inr(total)} total`} />
+            </Measure>
+          )}
+        </div>
+        <p className="mt-[var(--space-md)] leading-relaxed">
+          Know today&apos;s board rate in the shop? Enter it and Parakh compares it with the rate on the bill. It never assumes a gold rate.
+        </p>
+        <div className="mt-[var(--space-xs)] grid grid-cols-[minmax(0,1fr)_auto_auto] gap-[var(--space-2xs)] max-w-[26rem]">
+          <input inputMode="decimal" value={boardRate} onChange={(ev) => setBoardRate(ev.target.value)} placeholder="₹ board rate" aria-label="Board rate"
+            className="min-w-0 rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-[var(--space-xs)] py-[var(--space-2xs)] tnum" />
+          <select value={per10 ? "10" : "1"} aria-label="Rate unit" onChange={(ev) => setPer10(ev.target.value === "10")} className="rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-[var(--space-2xs)] py-[var(--space-2xs)]">
             <option value="1">per gram</option><option value="10">per 10 g</option>
           </select>
-          <select value={boardPurity} onChange={(ev) => setBoardPurity(ev.target.value as Purity)} className="rounded-md border border-line bg-white px-2 py-2">
+          <select value={boardPurity} aria-label="Board rate purity" onChange={(ev) => setBoardPurity(ev.target.value as Purity)} className="rounded-[var(--radius-input)] border border-rule-strong bg-paper-2 px-[var(--space-2xs)] py-[var(--space-2xs)]">
             {PURITIES.filter((p) => p !== "unknown").map((p) => <option key={p}>{p}</option>)}
           </select>
         </div>
       </section>
 
-
-      <Points tiers={["tip"]} r={r} e={e} counts={counts} />
-
-      {r.taxModeAssumed && <p className="text-[13px] text-muted">GST treated as {r.taxModeUsed === "inclusive" ? "included in prices" : "added on top"} — the only reading under which the slip adds up.</p>}
-
-      {r.cantCheck.length > 0 && (
-        <section className="rounded-xl border border-dashed border-line p-4">
-          <h2 className="font-medium">What Parakh couldn&apos;t check</h2>
-          <ul className="mt-2 space-y-1.5 text-[14px]">
-            {r.cantCheck.map((x, i) => <li key={i}><b className="font-medium">{x.what}:</b> <span className="text-muted">{x.why}</span></li>)}
+      {tips.length > 0 && (
+        <section className="mt-[var(--space-2xl)]">
+          <h2 className={H2}>Good to know</h2>
+          <ul className="ledger mt-[var(--space-xs)] border-y border-rule">
+            {tips.map((p, i) => (
+              <li key={i} className="py-[var(--space-sm)]">
+                <p className="font-medium">{p.title}</p>
+                <p className="mt-[var(--space-3xs)] leading-relaxed text-ink-2">{p.detail}{p.question && <> Ask: <em>“{p.question}”</em></>}</p>
+              </li>
+            ))}
           </ul>
         </section>
       )}
 
-      <section className="rounded-xl bg-gold-soft p-4">
-        <h2 className="font-medium">Before you pay</h2>
-        <ul className="mt-2 space-y-1.5 text-[14px] list-disc pl-5">
+      {r.taxModeAssumed && (
+        <p className="mt-[var(--space-md)] text-[length:var(--text-sm)] text-ink-2">
+          GST was treated as {r.taxModeUsed === "inclusive" ? "included in the prices" : "added on top"}: the only reading under which the slip adds up.
+        </p>
+      )}
+
+      {r.cantCheck.length > 0 && (
+        <section className="mt-[var(--space-2xl)]">
+          <h2 className={H2}>What Parakh couldn&apos;t check</h2>
+          <ul className="mt-[var(--space-xs)] space-y-[var(--space-2xs)] leading-relaxed">
+            {r.cantCheck.map((x, i) => <li key={i}><span className="font-medium">{x.what}.</span> <span className="text-ink-2">{x.why}</span></li>)}
+          </ul>
+        </section>
+      )}
+
+      <section className="mt-[var(--space-2xl)] bg-accent-soft px-[var(--space-md)] py-[var(--space-md)]">
+        <h2 className={H2}>Before you pay</h2>
+        <ul className="mt-[var(--space-xs)] list-disc space-y-[var(--space-3xs)] pl-[var(--space-md)] leading-relaxed">
           <li>Check each piece&apos;s HUID in the BIS Care app.</li>
-          <li>Watch the final weighing; match gross / stone / net weight to the bill.</li>
+          <li>Watch the final weighing, and match gross, stone and net weight to the bill.</li>
           <li>Ask for the exchange and buyback terms in writing.</li>
           <li>Get an itemised final invoice, not just a total.</li>
         </ul>
       </section>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button onClick={share} className="rounded-xl bg-ink text-ivory py-3.5 font-medium">{copied ? "Copied ✓" : "Share with family"}</button>
-        <button onClick={onEdit} className="rounded-xl border border-ink py-3.5 font-medium">Edit what we read</button>
+      <div className="mt-[var(--space-xl)] flex flex-col gap-[var(--space-xs)] sm:flex-row">
+        <button onClick={share} className="btn btn-primary">{copied ? "Copied" : "Share with family"}</button>
+        <button onClick={onEdit} className="btn btn-secondary">Edit what we read</button>
       </div>
-      <p className="text-[12px] text-muted leading-relaxed">
-        Parakh checks the slip&apos;s own arithmetic and common billing patterns. A point to ask about is not proof of anything wrong — many have
-        good answers. Not financial, tax or legal advice.
+      <p className="mt-[var(--space-md)] text-[length:var(--text-xs)] leading-relaxed text-ink-2">
+        Parakh checks the slip&apos;s own arithmetic and common billing patterns. A point to ask about is not proof that anything is wrong.
+        Not financial, tax or legal advice.
       </p>
-    </div>
+    </article>
+  );
+}
+
+function Measure({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
+  return (
+    <details className="group py-[var(--space-sm)]">
+      <summary className="flex cursor-pointer list-none items-baseline gap-[var(--space-sm)]">
+        <span className="flex-1">{label}<span className="ml-[var(--space-2xs)] text-[length:var(--text-sm)] text-accent-ink underline underline-offset-4 group-open:hidden">show</span></span>
+        <span className="font-display text-[length:var(--text-xl)] tnum nowrap">{value}</span>
+      </summary>
+      {children}
+    </details>
   );
 }

@@ -1,0 +1,64 @@
+/* Hallmark · genre: editorial · design-system: design.md · designed-as-app
+ * theme: custom (vibe: "assay certificate, ivory ledger, antique gold") · paper-band: light · display: high-contrast-serif · accent-hue: warm
+ */
+/* Colour + font tokens live in a Tailwind @theme block so utilities (bg-paper, text-ink, font-display…)
+   read them by name. `static` emits every token to :root even when unused. Plain-CSS export: design.md § Exports. */
+@theme static {
+  /* Paper & ink — tinted toward the gold anchor, never pure white/black */
+  --color-paper:      oklch(97.8% 0.008 85);
+  --color-paper-2:    oklch(99.3% 0.004 85);
+  --color-ink:        oklch(21% 0.008 60);
+  --color-ink-hover:  oklch(29% 0.01 60);
+  --color-ink-2:      oklch(46% 0.016 60);
+  --color-rule:       oklch(88.5% 0.013 80);
+  --color-rule-strong: oklch(70% 0.015 70);
+
+  /* Accent — antique gold. Brand only, < 5% of any viewport */
+  --color-accent:      oklch(62% 0.115 72);
+  --color-accent-ink:  oklch(44% 0.085 65);
+  --color-accent-soft: oklch(94.5% 0.03 82);
+  --color-on-ink-accent: oklch(83% 0.11 80);
+
+  /* Review tiers */
+  --color-mismatch:      oklch(50% 0.17 28);
+  --color-mismatch-soft: oklch(95.5% 0.022 28);
+  --color-ask:           oklch(52% 0.13 48);
+  --color-ask-soft:      oklch(95.8% 0.03 70);
+  --color-tip:           oklch(45% 0.06 245);
+  --color-tip-soft:      oklch(96.2% 0.012 245);
+  --color-ok:            oklch(45% 0.08 155);
+  --color-focus:         oklch(52% 0.16 255);
+
+  /* Breakdown bar segments */
+  --color-seg-metal:   oklch(62% 0.115 72);
+  --color-seg-making:  oklch(76% 0.11 80);
+  --color-seg-wastage: oklch(86% 0.07 85);
+  --color-seg-stones:  oklch(50% 0.06 255);
+  --color-seg-other:   oklch(75% 0.015 70);
+  --color-seg-gst:     oklch(30% 0.01 60);
+
+  /* Type */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans:    var(--font-instrument), system-ui, sans-serif;
+  --font-hand:    var(--font-caveat), cursive;
+  --font-mono:    var(--font-mono-slip), ui-monospace, monospace;
+
+}
+
+:root {
+  --text-xs: 0.8125rem; --text-sm: 0.875rem; --text-base: 1rem; --text-md: 1.0625rem;
+  --text-lg: 1.25rem;   --text-xl: 1.625rem;  --text-2xl: 2.125rem;
+  --text-display: clamp(2.25rem, 1.6rem + 3vw, 3.5rem);
+
+  /* 4-pt spacing */
+  --space-3xs: 0.25rem; --space-2xs: 0.5rem; --space-xs: 0.75rem;
+  --space-sm: 1rem;     --space-md: 1.5rem;  --space-lg: 2rem;
+  --space-xl: 3rem;     --space-2xl: 4.5rem; --space-3xl: 7rem;
+
+  --radius-input: 8px; --radius-button: 10px; --radius-figure: 6px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 160ms;
+}

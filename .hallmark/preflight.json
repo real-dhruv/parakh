@@ -1,0 +1,1 @@
+{ "date": "2026-10-16", "framework": "Next.js 16 app router", "css": "Tailwind v4 (@theme static in tokens.css)", "fonts": ["Fraunces", "Instrument Sans", "JetBrains Mono", "Caveat (sample slips only)"], "motion": "none (CSS only)", "palette": "OKLCH tokens in tokens.css" }

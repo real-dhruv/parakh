@@ -1,30 +1,41 @@
+/* Hallmark · genre: editorial · macrostructure: Split Studio (home) / Long Document (check) · design-system: design.md · designed-as-app */
 @import "tailwindcss";
+@import "../tokens.css";
 
-/* Light-only consumer palette: ivory, ink, antique gold. */
-@theme inline {
-  --color-ivory: #fbf8f3;
-  --color-card: #ffffff;
-  --color-ink: #1c1917;
-  --color-muted: #6b625a;
-  --color-line: #e9e2d8;
-  --color-gold: #a8741a;
-  --color-gold-ink: #7d5410;
-  --color-gold-soft: #f5ead6;
-  --color-mismatch: #b42318;
-  --color-mismatch-soft: #fdecea;
-  --color-ask: #a15c07;
-  --color-ask-soft: #fdf3e2;
-  --color-tip: #3b5b7a;
-  --color-tip-soft: #eaf1f7;
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-fraunces);
-  --font-hand: var(--font-caveat);
-  --font-mono: var(--font-mono-slip);
-}
 
+html, body { overflow-x: clip; }
 html { color-scheme: light; }
-body { background: var(--color-ivory); color: var(--color-ink); }
-.tnum { font-variant-numeric: tabular-nums; }
-@keyframes scan { 0% { top: 0% } 100% { top: 100% } }
-.scanline { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #d9a441, transparent); box-shadow: 0 0 18px 6px rgba(217,164,65,.35); animation: scan 1.6s ease-in-out infinite alternate; }
-@media (prefers-reduced-motion: reduce) { .scanline { animation: none; top: 50%; } }
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
+
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.tnum { font-variant-numeric: tabular-nums lining-nums; }
+.nowrap { white-space: nowrap; }
+h1, h2, h3 { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+
+/* Primary / secondary CTA voice (see design.md § CTA voice) */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2xs);
+  min-height: 3.25rem; padding: 0 var(--space-md); border-radius: var(--radius-button);
+  font-weight: 600; font-size: var(--text-md); white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out);
+}
+.btn-primary { background: var(--color-ink); color: var(--color-paper); }
+.btn-primary:hover { background: var(--color-ink-hover); }
+.btn-secondary { border: 1px solid var(--color-ink); color: var(--color-ink); background: transparent; }
+.btn-secondary:hover { background: var(--color-paper-2); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Ledger rows: hairline rules, figures right-aligned */
+.ledger > * + * { border-top: 1px solid var(--color-rule); }
+
+@keyframes scan { from { top: 0% } to { top: 100% } }
+.scanline {
+  position: absolute; left: 0; right: 0; height: 2px; background: var(--color-accent);
+  box-shadow: 0 0 16px 5px var(--color-accent-soft);
+  animation: scan 1.6s var(--ease-in-out) infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scanline { animation: none; top: 50%; }
+  .btn { transition: none; }
+}
