@@ -12,7 +12,7 @@ Today a buyer at a jewellery counter accepts the estimate slip mostly on trust, 
 - [Evidence] Regulation has already trained buyers to verify: since 1 April 2023, gold jewellery cannot be sold without a 6-digit HUID, which buyers can check in the BIS Care app ([Vikaspedia / Ministry of Consumer Affairs](https://vikaspedia.in/social-welfare/social-awareness/consumer-education/hallmarking-of-gold-jewelry-consumer-education-1/sale-of-hallmarked-gold-jewelry-or-gold-artefacts-without-huid-prohibited-after-31st-march-2023)). Purity is now verifiable; the *pricing* on the slip still isn't.
 
 ## 3. Why now?
-- [Built] Vision LLMs can transcribe a messy, half-handwritten, Hinglish estimate into structured data in seconds for a fraction of a rupee (measured cost in `EVAL.md`). Two years ago this needed a human.
+- [Built] Vision LLMs can transcribe a messy, half-handwritten, Hinglish estimate into structured data in seconds: in `EVAL.md`, the chosen model read 8/8 synthetic slips exactly in about 2.5 s on a free tier, and the paid fallback costs about $0.002 per slip. Two years ago this needed a human.
 - [Built] The judgement layer doesn't need AI: once the slip is structured, ordinary tested code checks it. That makes the product cheap to run and explainable.
 - [Evidence] Clear public rules give the checks firm footing: 3% GST on the total value of a retail jewellery sale, including making ([CBIC gems & jewellery FAQ via TaxTMI](https://www.taxtmi.com/article/detailed?id=13416)), and defined BIS purity grades ([BIS FAQ](https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq)).
 
