@@ -65,7 +65,7 @@ function PointCard({ p, e }: { p: ReviewPoint; e: Estimate }) {
         </p>
       )}
       {p.refs.length > 0 && (
-        <button onClick={() => setOpen((o) => !o)} className="mt-2 text-[13px] text-muted underline underline-offset-4">
+        <button onClick={() => setOpen((o) => !o)} className="mt-1 -mb-1 py-2 text-[13px] text-muted underline underline-offset-4">
           {open ? "Hide source" : "Where do these numbers come from?"}
         </button>
       )}
@@ -79,9 +79,9 @@ function Key({ label, value, sub, children }: { label: string; value: string; su
   return (
     <button onClick={() => setOpen((o) => !o)} className="text-left rounded-xl border border-line bg-card p-4 w-full">
       <div className="text-[12px] uppercase tracking-wider text-muted">{label}</div>
-      <div className="mt-1 font-display text-[26px] leading-tight tnum">{value}</div>
+      <div className="mt-1 font-display text-[24px] leading-tight tnum">{value}</div>
       {sub && <div className="mt-0.5 text-[13px] text-muted">{sub}</div>}
-      <div className="mt-1 text-[12px] text-gold">{open ? "Hide calculation" : "Tap to see the calculation"}</div>
+      <div className="mt-1 text-[12px] text-gold-ink font-medium">{open ? "Hide calculation" : "Tap to see the calculation"}</div>
       {open && children}
     </button>
   );
@@ -115,6 +115,9 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
   const c = r.calc;
   const counts = { mismatch: 0, ask: 0, tip: 0 } as Record<Tier, number>;
   r.points.forEach((p) => counts[p.tier]++);
+  // Headline "hidden number": effective gold price vs the rate written on the slip (single-item bills).
+  const hero = e.items.length === 1 && c.items[0].impliedRate !== null && e.items[0].goldRate.value
+    && c.items[0].impliedRate / e.items[0].goldRate.value > 1.005 ? { implied: c.items[0].impliedRate, written: e.items[0].goldRate.value } : null;
   const stake = r.points.filter((p) => p.tier !== "tip").reduce((a, p) => a + Math.max(0, p.atStake ?? 0), 0);
 
   const total = c.total ?? 0;
@@ -148,6 +151,11 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
       <section className="rounded-2xl bg-ink text-ivory p-5">
         <div className="text-[13px] opacity-70">{e.shop.value ?? "Your estimate"}</div>
         <div className="mt-1 font-display text-[38px] leading-none tnum">{c.total !== null ? inr(c.total) : "Total not read"}</div>
+        {hero && (
+          <div className="mt-3 text-[14px] opacity-90">
+            You effectively pay <span className="font-semibold text-[#f3c77a] tnum">{inr(hero.implied)}/g</span> for gold; the slip says <span className="tnum">{inr(hero.written)}/g</span>
+          </div>
+        )}
         {stake >= 1 && (
           <div className="mt-3 text-[15px]"><span className="font-semibold text-[#f3c77a] tnum">{inr(stake)}</span> worth asking about before you pay</div>
         )}
@@ -187,7 +195,7 @@ export default function Report({ estimate: e, meta, onEdit }: { estimate: Estima
         </section>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-2">
+      <section className="grid grid-cols-2 gap-3 [&>*:only-child]:col-span-2 [&>*:last-child:nth-child(odd)]:col-span-2">
         {e.items.map((it, i) => {
           const ic = c.items[i];
           if (ic.impliedRate === null) return null;

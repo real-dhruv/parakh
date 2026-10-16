@@ -14,6 +14,9 @@ const MODELS = process.env.EVAL_MODELS?.split(",") ?? [
   "openai/gpt-6-luna",
   "google/gemini-3.1-flash-lite",
   "qwen/qwen3.8-flash",
+  // stronger tier: does paying more read slips better?
+  "google/gemini-3.8-flash",
+  "openai/gpt-5.4-mini",
 ];
 const BUDGET_USD = 2;
 let spent = 0;

@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { save, setImage, toDataUrl, unconfirmed, type Meta } from "@/lib/store";
 import type { Estimate } from "@/lib/schema";
 import type { Sample } from "@/samples/data";
@@ -14,10 +14,12 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
   const [error, setError] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
   const [text, setText] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
 
   async function run(body: { imageDataUrl?: string; text?: string }, sample?: SampleCard) {
     setError(null);
     setBusy(sample ? sample.id : "upload");
+    setPreview(sample ? `/samples/${sample.id}.png` : body.imageDataUrl ?? null);
     try {
       const res = await fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
@@ -30,6 +32,7 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
       setBusy(null);
+      setPreview(null);
     }
   }
 
@@ -52,6 +55,7 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
 
   return (
     <div className="space-y-8">
+      {busy && <Reading image={preview} />}
       <section className="rounded-2xl bg-card border border-line p-5 shadow-sm">
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         <button
@@ -61,7 +65,14 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
         >
           {busy === "upload" ? "Reading your estimate…" : "📷  Snap or upload your estimate"}
         </button>
-        <button onClick={() => setPasting((p) => !p)} disabled={!!busy} className="mt-3 w-full text-sm text-muted underline underline-offset-4">
+        <button
+          onClick={() => onSample(samples[0])}
+          disabled={!!busy}
+          className="mt-3 w-full rounded-xl border border-gold/50 bg-gold-soft py-3.5 text-[15px] font-medium text-gold-ink active:scale-[0.99] transition disabled:opacity-60"
+        >
+          No estimate handy? Try a sample (15 sec)
+        </button>
+        <button onClick={() => setPasting((p) => !p)} disabled={!!busy} className="mt-1 w-full py-2.5 text-sm text-muted underline underline-offset-4">
           {pasting ? "Hide" : "Or paste the estimate text"}
         </button>
         {pasting && (
@@ -80,7 +91,7 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
         )}
         {error && <p role="alert" className="mt-3 rounded-lg bg-mismatch-soft text-mismatch text-sm p-3">{error}</p>}
         <details className="mt-4 text-[13px] text-muted">
-          <summary className="cursor-pointer">🔒 What happens to my photo?</summary>
+          <summary className="cursor-pointer py-1">🔒 What happens to my photo?</summary>
           <p className="mt-2 leading-relaxed">
             To read your estimate, your image is sent through OpenRouter to a third-party AI model provider; their data policies apply.
             Parakh&apos;s server doesn&apos;t save the image or the results. The extracted estimate (not the image) is kept in this tab&apos;s session
@@ -91,7 +102,7 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted mb-3">No estimate handy? Try a sample</h2>
+        <h2 className="font-display text-[19px] mb-3">More sample estimates</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {samples.map((s) => (
             <button
@@ -104,12 +115,37 @@ export default function Start({ samples }: { samples: SampleCard[] }) {
               <img src={`/samples/${s.id}.png`} alt="" className="h-28 w-full object-cover object-top" />
               <div className="p-2.5">
                 <div className="text-[13px] font-medium leading-snug">{busy === s.id ? "Reading with AI…" : s.title}</div>
-                <div className="mt-1 text-[11px] text-gold">Synthetic sample</div>
+                <div className="mt-1 text-[12px] text-gold-ink">Synthetic sample</div>
               </div>
             </button>
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Full-screen state while the AI reads the slip (typically 5–15 s). */
+function Reading({ image }: { image: string | null }) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSecs((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ivory/97 backdrop-blur px-6" role="status" aria-live="polite">
+      {image && (
+        <div className="relative w-52 max-h-72 overflow-hidden rounded-lg border border-line bg-white shadow-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="" className="w-full" />
+          <div className="scanline" />
+        </div>
+      )}
+      <p className="mt-6 font-display text-[22px]">Reading your estimate…</p>
+      <p className="mt-2 max-w-xs text-center text-[14px] leading-relaxed text-muted">
+        AI is transcribing every line and noting where each number came from. Nothing is judged yet.
+      </p>
+      <p className="mt-3 text-[13px] text-muted tnum">{secs}s · usually 5–15 s</p>
     </div>
   );
 }

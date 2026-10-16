@@ -8,6 +8,7 @@
   --color-muted: #6b625a;
   --color-line: #e9e2d8;
   --color-gold: #a8741a;
+  --color-gold-ink: #7d5410;
   --color-gold-soft: #f5ead6;
   --color-mismatch: #b42318;
   --color-mismatch-soft: #fdecea;
@@ -24,3 +25,6 @@
 html { color-scheme: light; }
 body { background: var(--color-ivory); color: var(--color-ink); }
 .tnum { font-variant-numeric: tabular-nums; }
+@keyframes scan { 0% { top: 0% } 100% { top: 100% } }
+.scanline { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #d9a441, transparent); box-shadow: 0 0 18px 6px rgba(217,164,65,.35); animation: scan 1.6s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .scanline { animation: none; top: 50%; } }

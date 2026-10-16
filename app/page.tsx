@@ -22,7 +22,7 @@ export default function Home() {
       <Start samples={SAMPLES.map(({ id, title, estimate }) => ({ id, title, estimate }))} />
 
       <section className="mt-12">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted mb-4">How it works</h2>
+        <h2 className="font-display text-[19px] mb-4">How it works</h2>
         <ol className="space-y-4">
           {[
             ["AI reads the slip", "A vision model transcribes every line — and keeps the exact text each number came from."],
@@ -30,7 +30,7 @@ export default function Home() {
             ["Code does the maths", "Every calculation is ordinary, tested code. The AI never produces a number in your report."],
           ].map(([t, d], i) => (
             <li key={t} className="flex gap-4">
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold-soft text-gold text-sm font-semibold">{i + 1}</span>
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold-soft text-gold-ink text-sm font-semibold">{i + 1}</span>
               <div>
                 <div className="font-medium">{t}</div>
                 <div className="text-sm text-muted leading-relaxed">{d}</div>

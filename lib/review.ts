@@ -19,6 +19,7 @@ export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const g = (n: number) => `${+n.toFixed(3)} g`;
 
 const itemName = (it: Item, i: number) => it.description.value || `Item ${i + 1}`;
+const titled = (single: boolean, name: string, t: string) => (single ? t.charAt(0).toUpperCase() + t.slice(1) : `${name}: ${t}`);
 
 /** Pre-GST amount of an item using only slip-read values (S2). */
 function slipItemAmount(it: Item): number | null {
@@ -38,6 +39,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
   e.items.forEach((it, i) => {
     const c = calc.items[i];
     const name = itemName(it, i);
+    const T = (t: string) => titled(e.items.length === 1, name, t);
     const p = `items.${i}`;
     const rateS = slip(it.goldRate);
     const gvS = slip(it.goldValue);
@@ -48,7 +50,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
     // R2: gross − stone = net (all three read from slip)
     if (grossS !== null && stoneS !== null && netS !== null && !weightClose(grossS - stoneS, netS)) {
       points.push({
-        id: "R2", tier: "mismatch", title: `${name}: weights don't add up`,
+        id: "R2", tier: "mismatch", title: T(`weights don't add up`),
         detail: `Gross ${g(grossS)} − stones ${g(stoneS)} = ${g(grossS - stoneS)}, but the slip shows net ${g(netS)}.`,
         question: "Can you re-weigh the piece and show me gross, stone and net weight?",
         refs: [`${p}.grossWt`, `${p}.stoneWt`, `${p}.netWt`],
@@ -60,7 +62,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
     const billedOnGross = c.billedGoldWt !== null && c.grossWtG !== null && c.stoneWtG !== null && c.stoneWtG > 0 && weightClose(c.billedGoldWt, c.grossWtG);
     if (billedOnGross && rate !== null) {
       points.push({
-        id: "R3", tier: "ask", title: `${name}: gold rate may be applied to stone weight`,
+        id: "R3", tier: "ask", title: T(`gold rate may be applied to stone weight`),
         detail: `Gold value ${inr(c.goldValue!)} ÷ rate ${inr(rate)}/g = ${g(c.billedGoldWt!)}, which equals the gross weight including ${g(c.stoneWtG!)} of stones.`,
         question: "Which weight was the gold rate applied to — gross or net of stones?",
         atStake: rate * c.stoneWtG!,
@@ -71,7 +73,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
     // R1a: gold value = rate × net (slip values only); skip if R3 already explains it
     if (rateS !== null && gvS !== null && netS !== null && !billedOnGross && !moneyClose(gvS, rateS * netS)) {
       points.push({
-        id: "R1", tier: "mismatch", title: `${name}: gold value doesn't match rate × weight`,
+        id: "R1", tier: "mismatch", title: T(`gold value doesn't match rate × weight`),
         detail: `${inr(rateS)}/g × ${g(netS)} = ${inr(rateS * netS)}, but the slip shows ${inr(gvS)} (difference ${inr(gvS - rateS * netS)}).`,
         question: "How was the gold value calculated?",
         refs: [`${p}.goldRate`, `${p}.netWt`, `${p}.goldValue`],
@@ -90,7 +92,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
       if (ch.basis === "per_g" && c.netWtG !== null && !moneyClose(amt, r * c.netWtG)) {
         if (c.grossWtG !== null && c.stoneWtG && moneyClose(amt, r * c.grossWtG)) {
           points.push({
-            id: "R4", tier: "ask", title: `${name}: ${ch.label} charged on gross weight`,
+            id: "R4", tier: "ask", title: T(`${ch.label} charged on gross weight`),
             detail: `${inr(r)}/g × gross ${g(c.grossWtG)} = ${inr(amt)}. On net metal weight (${g(c.netWtG)}) it would be ${inr(r * c.netWtG)}.`,
             question: `Is ${ch.label} charged on the stone weight too?`,
             atStake: amt - r * c.netWtG,
@@ -98,7 +100,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
           });
         } else if (slip(ch.rate) !== null && slip(ch.amount) !== null && c.netWtFrom === "slip") {
           points.push({
-            id: "R1", tier: "mismatch", title: `${name}: ${ch.label} doesn't match its rate`,
+            id: "R1", tier: "mismatch", title: T(`${ch.label} doesn't match its rate`),
             detail: `${inr(r)}/g × ${g(c.netWtG)} = ${inr(r * c.netWtG)}, but the slip shows ${inr(amt)}.`,
             question: `How was ${ch.label} calculated?`,
             refs: [...ref, `${p}.netWt`],
@@ -107,7 +109,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
       }
       if (ch.basis === "pct" && c.goldValue !== null && !moneyClose(amt, (r / 100) * c.goldValue)) {
         points.push({
-          id: "R4", tier: "ask", title: `${name}: ${ch.label} % doesn't match the gold value`,
+          id: "R4", tier: "ask", title: T(`${ch.label} % doesn't match the gold value`),
           detail: `${r}% of the gold value ${inr(c.goldValue)} is ${inr((r / 100) * c.goldValue)}, but the slip shows ${inr(amt)}.`,
           question: `What is the ${r}% ${ch.label} applied to?`,
           atStake: amt - (r / 100) * c.goldValue,
@@ -122,7 +124,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
       ? it.charges.reduce((a, ch) => a + (ch.type === "discount" ? -slip(ch.amount)! : slip(ch.amount)!), gvS) : null;
     if (lt !== null && parts !== null && !moneyClose(parts, lt)) {
       points.push({
-        id: "R1", tier: "mismatch", title: `${name}: line total doesn't add up`,
+        id: "R1", tier: "mismatch", title: T(`line total doesn't add up`),
         detail: `Gold ${inr(gvS!)} plus the charges listed comes to ${inr(parts)}, but the line total says ${inr(lt)}.`,
         question: "Can you walk me through the line total?",
         refs: [`${p}.goldValue`, `${p}.lineTotal`, ...it.charges.map((_, k) => `${p}.charges.${k}.amount`)],
@@ -137,7 +139,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
         cantCheck.push({ what: `${name}: rate vs board rate`, why: `Board rate you entered is for ${board.purity}; this item is ${purity ?? "unknown purity"}.` });
       } else if (rateUsed > board.ratePerG * 1.01) {
         points.push({
-          id: "R5", tier: "ask", title: `${name}: rate is above the board rate you entered`,
+          id: "R5", tier: "ask", title: T(`rate is above the board rate you entered`),
           detail: `Rate used ${inr(rateUsed)}/g vs board ${inr(board.ratePerG)}/g (${inr(rateUsed - board.ratePerG)}/g more).`,
           question: "The board shows a lower rate — what's included in the rate on my bill?",
           atStake: c.netWtG !== null ? (rateUsed - board.ratePerG) * c.netWtG : undefined,
@@ -151,7 +153,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
     const hasWastage = it.charges.some((ch) => ch.type === "wastage");
     if (hasMaking && hasWastage) {
       points.push({
-        id: "R7", tier: "tip", title: `${name}: both making and wastage/VA are charged`,
+        id: "R7", tier: "tip", title: T(`both making and wastage/VA are charged`),
         detail: "Some jewellers charge both; others fold wastage into making. Neither is wrong by itself.",
         question: "What does each of these two charges cover?",
         refs: it.charges.map((ch, k) => (ch.type === "making" || ch.type === "wastage" ? `${p}.charges.${k}.amount` : "")).filter(Boolean),
@@ -161,7 +163,7 @@ export function review(e: Estimate, board?: BoardRate): Report {
     // R8: purity
     if (!purity || purity === "unknown") {
       points.push({
-        id: "R8", tier: "ask", title: `${name}: purity isn't stated`,
+        id: "R8", tier: "ask", title: T(`purity isn't stated`),
         detail: "The slip doesn't state purity in a form like 22K916 or 18K750.",
         question: "Please write the purity on the bill, e.g. 22K916.",
         refs: [`${p}.purity`],
