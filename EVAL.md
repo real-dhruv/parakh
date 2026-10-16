@@ -60,3 +60,21 @@ The blurred test slip was too mild: every reader still transcribed it exactly (1
 **What this shows about failure.** The handwritten diamond slip is where models slip: GPT-6 Luna read "7730" as "7330" and "24,195" as "24,795" in run 1. That would have produced a false "doesn't add up", which is why the user confirms every value before any judgement. Claude Haiku did something subtler on the bangles slip: it reported the arithmetically *correct* total instead of the printed one, hiding the ₹600 error. A reader that "fixes" the slip is worse than one that misreads it, so transcription fidelity, not general intelligence, is the selection criterion.
 
 **Limits.** 8 synthetic slips; no real or phone-photographed slips yet. Directional only.
+
+## 4. Live end-to-end test in a real browser (BrowserOS)
+
+Run through the actual app, not the scoring script: samples via live AI, confirm, report, source trace, board-rate input, and pasted text.
+
+| Check | Result |
+|---|---|
+| Earrings photo → report | Read by Groq Qwen in 2.5 s; ₹6,240 to ask about; effective ₹10,428/g vs ₹9,450/g on slip |
+| Board rate ₹9,300/g entered | New point appears; total to ask rises to ₹7,110 (+₹150/g × 5.8 g = ₹870, correct) |
+| Clean chain photo | "Nothing on this slip failed our checks." No false flags |
+| Bangles photo (total ₹600 off) | "The final total doesn't add up … difference ₹600" |
+| Pasted Hinglish text (gpt-oss-20b) | 2.7 s; stone-weight point found (₹4,725) |
+| Groq rate-limited | Fell back to OpenRouter Gemini automatically; same values, 3.3 s |
+
+**Bugs this found (all fixed, with tests where the logic is non-trivial):**
+1. **False "doesn't add up" from mis-filed lines.** gpt-oss-20b listed GST, and on another run the subtotal ("Jod"), as item charges. That double-counted them and made a correct line look wrong, the worst failure Parakh can have. Fix: tax and total lines are dropped from charges in code for every model, the prompt forbids them, and users can remove any charge. After the fix, gpt-oss-20b passed all three pasted test estimates.
+2. **Stale screens after "New check".** Next 16 keeps visited pages alive; the home page returned frozen on "Reading…", and a second check could reuse the first check's screen state. Fix: transient state resets when hidden; each check gets its own id.
+3. **No upper bound on a slow read.** Now 20 s per provider and 45 s in the browser, with a plain message.
