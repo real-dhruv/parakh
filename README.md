@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Parakh
 
-## Getting Started
+**A second opinion on a jewellery estimate, before you pay.**
+Live prototype: **https://parakh-tan.vercel.app**
 
-First, run the development server:
+Photograph a jeweller's estimate slip. A vision model transcribes every line and records where each number came from; you confirm what it read; then plain, tested rules show what you're really paying for gold, making and stones, which lines don't add up, and the exact question to ask the jeweller.
+
+Built for Indian families buying gold at the counter (weddings, festivals, gifts), where the decision happens on a half-handwritten slip, not in a catalog.
+
+## How it works
+
+| Step | What does it | Why |
+|---|---|---|
+| Read the photo | Groq · `qwen/qwen3.8-27b` (fallback: OpenRouter · Gemini 3.1 Flash Lite) | Best on the eval: 8/8 slips exactly right, 2.5 s |
+| Read pasted text | Groq · `openai/gpt-oss-20b` | Text-only model, fast and free tier |
+| Sort charge labels ("MC", "VA", "Ghadai"…) | Jev (TypeSafe) typed `choice` | 44/44, against 43/44 for the best LLM and 33/44 for keyword rules |
+| Every calculation and judgement | TypeScript + zod (`lib/calc.ts`, `lib/review.ts`) | Money must be exact; the AI never writes a number in the report |
+
+Only arithmetic on the slip's own confirmed figures is ever called wrong. Everything else is phrased as a question for the jeweller.
+
+## Read more
+
+- [`EVAL.md`](EVAL.md): model comparison, Jev vs LLM vs keyword rules, live browser test, and the bugs it found
+- [`PRODUCT_THESIS.md`](PRODUCT_THESIS.md) · [`INVESTMENT_THESIS.md`](INVESTMENT_THESIS.md): the consumer insight, evidence vs assumptions, risks
+- [`design.md`](design.md): the locked design system
+- [`docs/superpowers/specs/`](docs/superpowers/specs/): the design spec and its revisions
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # add GROQ_API_KEY, OPENROUTER_API_KEY, TYPESAFE_API_KEY
+npm run dev                  # http://localhost:3000 (without keys: clearly labelled demo mode)
+npm test                     # 33 unit tests for the calculation and review rules
+npm run eval                 # model + Jev evaluation → EVAL.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All sample estimates are synthetic, shops are fictional and gold rates are illustrative. Independent clean-room project; built with Claude Code. Not financial, tax or legal advice.
