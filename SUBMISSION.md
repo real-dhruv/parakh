@@ -46,4 +46,6 @@ Recording tips: phone-width browser window; use the "earrings for Mom" sample; r
 
 ## A. Prototype link
 
-_To add after deployment (needs your go-ahead; plan: Vercel free tier, keys as server-side environment variables, OpenRouter key spend limit kept at $3)._
+**https://parakh-tan.vercel.app** (Vercel Hobby). Verified live on 2026-10-16: the sample estimate is read by Groq Qwen in about 3 s, and the report matches the answer key exactly. API keys are server-side Vercel environment variables; no key or key name appears in any public JavaScript, and `.env.local` is not served (404).
+
+Paste-ready for the form: **https://parakh-tan.vercel.app** · *Photograph a jeweller's estimate and see what you're really paying for, which lines don't add up and what to ask before you pay. AI reads the slip; tested rules do every calculation.*
